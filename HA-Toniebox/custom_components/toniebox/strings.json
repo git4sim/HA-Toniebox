@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Toniebox Cloud Login",
+        "description": "Enter your Toniebox / Boxine account credentials.\nYour data is only used to communicate with the official Toniebox cloud (api.tonie.cloud).",
+        "data": {
+          "username": "E-Mail Address",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate with Toniebox",
+        "description": "Your session has expired. Please enter your credentials again.",
+        "data": {
+          "username": "E-Mail Address",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Toniebox cloud. Please check your internet connection.",
+      "invalid_auth": "Invalid email address or password.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Toniebox account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "services": {
+    "upload_audio": {
+      "name": "Upload Audio",
+      "description": "Upload a local audio file as a new chapter to a creative tonie.",
+      "fields": {
+        "entity_id": {
+          "name": "Creative Tonie",
+          "description": "The media_player entity of the target creative tonie."
+        },
+        "file_path": {
+          "name": "File Path",
+          "description": "Absolute path to the audio file on the Home Assistant host (e.g. /config/tonie_audio/story.mp3)."
+        },
+        "title": {
+          "name": "Chapter Title",
+          "description": "Title shown for this chapter on the tonie. Defaults to the filename."
+        }
+      }
+    },
+    "clear_chapters": {
+      "name": "Clear Chapters",
+      "description": "Remove all chapters from a creative tonie.",
+      "fields": {
+        "entity_id": {
+          "name": "Creative Tonie",
+          "description": "The media_player entity of the target creative tonie."
+        }
+      }
+    },
+    "sort_chapters": {
+      "name": "Sort Chapters",
+      "description": "Sort the chapters on a creative tonie.",
+      "fields": {
+        "entity_id": {
+          "name": "Creative Tonie",
+          "description": "The media_player entity of the target creative tonie."
+        },
+        "sort_by": {
+          "name": "Sort By",
+          "description": "Sort chapters by: title, filename, or date."
+        }
+      }
+    }
+  }
+}

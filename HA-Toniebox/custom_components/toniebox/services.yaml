@@ -1,0 +1,65 @@
+upload_audio:
+  name: Upload Audio
+  description: Upload a local audio file as a new chapter to a Creative Tonie.
+  fields:
+    entity_id:
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: toniebox
+    file_path:
+      name: File Path
+      description: >
+        Absolute path to the audio file on the Home Assistant host.
+        Example: /config/tonie_audio/bedtime_story.mp3
+      required: true
+      example: /config/tonie_audio/story.mp3
+      selector:
+        text:
+    title:
+      name: Chapter Title
+      description: Title for the chapter as shown in the Toniebox app.
+      required: false
+      example: "Bedtime Story"
+      selector:
+        text:
+
+clear_chapters:
+  name: Clear Chapters
+  description: Remove all chapters from a Creative Tonie.
+  fields:
+    entity_id:
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: toniebox
+
+sort_chapters:
+  name: Sort Chapters
+  description: Sort the chapters on a Creative Tonie by the specified criteria.
+  fields:
+    entity_id:
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: toniebox
+    sort_by:
+      name: Sort By
+      description: Sorting criteria for chapters.
+      required: false
+      default: title
+      selector:
+        select:
+          options:
+            - title
+            - filename
+            - date
