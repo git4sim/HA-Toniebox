@@ -108,11 +108,24 @@ class ContentTonieCurrentBoxSensor(_CTBase, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        # Try to resolve toniebox ID → name from coordinator
-        box_id = self._ct.get("toniebox_id") or self._ct.get("tonieboxId")
+        hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+        # Prefer direct field from API
+        box_id = self._ct.get("toniebox_id")
+        if not box_id:
+            # Fall back: find which toniebox has this content tonie placed on it
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                placement = tb.get("placement", {})
+                if isinstance(placement, dict):
+                    placed_id = (
+                        (placement.get("tonie") or {}).get("id")
+                        or placement.get("tonieId")
+                        or placement.get("tonie_id")
+                    )
+                    if placed_id == self._ct_id:
+                        box_id = tb_id
+                        break
         if not box_id:
             return None
-        hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
         box = hh.get("tonieboxes", {}).get(box_id, {})
         return box.get("name") or box_id
 
@@ -204,14 +217,15 @@ class ContentTonieActiveBinarySensor(_CTBase, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        # A Content Tonie is "active" if any Toniebox in this household is currently
-        # playing it (placement matches this tonie's ID)
+        # A Content Tonie is "active" if any Toniebox in this household has it placed
         hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
         for tb in hh.get("tonieboxes", {}).values():
             placement = tb.get("placement", {})
             if isinstance(placement, dict):
+                # API returns placement = {"tonie": {"id": "...", ...}}
                 placed_id = (
-                    placement.get("tonieId")
+                    (placement.get("tonie") or {}).get("id")
+                    or placement.get("tonieId")
                     or placement.get("tonie_id")
                     or placement.get("id")
                 )

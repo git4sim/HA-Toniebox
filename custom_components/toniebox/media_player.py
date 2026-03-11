@@ -171,15 +171,15 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         # Show chapter title from playback info if available
         info = self._tb.get("playback_info", {})
         chapter_title = info.get("chapterTitle") or info.get("chapter_title")
-        tonie_name = tonie.get("name", "Tonie aufgelegt")
+        tonie_name = tonie.get("name") or tonie.get("id", "Tonie aufgelegt")
         if chapter_title:
             return f"{tonie_name} – {chapter_title}"
         return tonie_name
 
     @property
     def media_image_url(self) -> str | None:
-        tonie = self._tb.get("placement", {}).get("tonie", {})
-        return tonie.get("image_url") if tonie else None
+        tonie = self._tb.get("placement", {}).get("tonie") or {}
+        return tonie.get("imageUrl") or tonie.get("image_url")
 
     @property
     def media_image_remotely_accessible(self) -> bool:

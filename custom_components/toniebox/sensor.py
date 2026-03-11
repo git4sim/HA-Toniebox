@@ -19,12 +19,6 @@ from .device_info import (
     toniebox_device_info,
     creative_tonie_device_info,
 )
-from .content_tonie import (
-    ContentTonieCurrentBoxSensor,
-    ContentTonieChapterCountSensor,
-    ContentTonieDurationSensor,
-    ContentTonieSalesSensor,
-)
 
 
 async def async_setup_entry(
@@ -78,16 +72,6 @@ async def async_setup_entry(
             ]
 
         # ── Content Tonie sensors (one device per figurine) ───────────────────
-        for ct_id in hh.get("contenttonies", {}):
-            entities += [
-                ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
-                ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
-                ContentTonieDurationSensor(coordinator, hh_id, ct_id),
-                ContentTonieSalesSensor(coordinator, hh_id, ct_id),
-            ]
-
-    # Content Tonie sensors — one device per figurine
-    for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
             entities += [
                 ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
