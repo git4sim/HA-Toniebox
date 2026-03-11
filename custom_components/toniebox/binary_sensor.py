@@ -49,14 +49,6 @@ async def async_setup_entry(
                 ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
             ]
 
-    for hh_id, hh in coordinator.data.get("households", {}).items():
-        for ct_id in hh.get("contenttonies", {}):
-            entities += [
-                ContentTonieActiveBinarySensor(coordinator, hh_id, ct_id),
-                ContentTonieLockBinarySensor(coordinator, hh_id, ct_id),
-                ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
-            ]
-
     async_add_entities(entities)
 
 

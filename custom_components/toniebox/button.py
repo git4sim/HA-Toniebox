@@ -10,7 +10,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .content_tonie import ContentTonieTuneRemoveButton
-from .content_tonie import ContentTonieTuneRemoveButton
 from .device_info import creative_tonie_device_info, toniebox_device_info, household_device_info
 
 
@@ -50,10 +49,6 @@ async def async_setup_entry(
             entities.append(TonieboxResetButton(coordinator, hh_id, tb_id))
 
     # ── Content Tonie buttons ─────────────────────────────────────────────────
-    for hh_id, hh in coordinator.data.get("households", {}).items():
-        for ct_id in hh.get("contenttonies", {}):
-            entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
-
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
             entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))

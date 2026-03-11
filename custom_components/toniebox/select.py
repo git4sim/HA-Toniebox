@@ -12,7 +12,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, SORT_OPTIONS, SORT_BY_TITLE
 from .content_tonie import ContentTonieLanguageSelect
-from .content_tonie import ContentTonieLanguageSelect
 from .device_info import creative_tonie_device_info, toniebox_device_info
 
 _LOGGER = logging.getLogger(__name__)
@@ -112,10 +111,6 @@ async def async_setup_entry(
             entities.append(TonieSortSelect(coordinator, hh_id, t_id))
 
     # ── Content Tonie selects ─────────────────────────────────────────────────
-    for hh_id, hh in coordinator.data.get("households", {}).items():
-        for ct_id in hh.get("contenttonies", {}):
-            entities.append(ContentTonieLanguageSelect(coordinator, hh_id, ct_id))
-
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
             entities.append(ContentTonieLanguageSelect(coordinator, hh_id, ct_id))
