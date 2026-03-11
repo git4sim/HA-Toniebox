@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD, UPDATE_INTERVAL_MINUTES
-from .tonie_client import TonieCloudClient, TonieCloudAuthError
+from .tonie_client import TonieCloudClient, TonieCloudAuthError, TonieCloudAPIError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +63,58 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
+# ── Entity lookup helpers ─────────────────────────────────────────────────────
+
+async def _find_creative_tonie(hass: HomeAssistant, entity_id: str):
+    """Look up (client, household_id, tonie_id) for a Creative Tonie entity.
+
+    Uses the entity registry to resolve entity_id → unique_id → tonie_id,
+    which is robust against renames and special characters in names.
+    Falls back to legacy slug matching for backwards compatibility.
+    """
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    if entry is not None and entry.unique_id.startswith("ct_"):
+        # unique_id format: ct_{t_id}_player
+        t_id = entry.unique_id[3:].removesuffix("_player")
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            for hh_id, hh in coordinator.data.get("households", {}).items():
+                if t_id in hh.get("creativetonies", {}):
+                    return coordinator.client, hh_id, t_id
+
+    # Legacy fallback: slug matching
+    for coordinator in hass.data.get(DOMAIN, {}).values():
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for t_id, t in hh.get("creativetonies", {}).items():
+                slug = _slugify(t.get("name", t_id))
+                if entity_id in (f"media_player.toniebox_{slug}", entity_id):
+                    return coordinator.client, hh_id, t_id
+
+    return None, None, None
+
+
+async def _find_toniebox(hass: HomeAssistant, entity_id: str):
+    """Look up (client, household_id, toniebox_id) for a Toniebox entity."""
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    if entry is not None and entry.unique_id.startswith("tb_"):
+        tb_id = entry.unique_id[3:].removesuffix("_player")
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            for hh_id, hh in coordinator.data.get("households", {}).items():
+                if tb_id in hh.get("tonieboxes", {}):
+                    return coordinator.client, hh_id, tb_id
+
+    # Legacy fallback
+    for coordinator in hass.data.get(DOMAIN, {}).values():
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                slug = _slugify(tb.get("name", tb_id))
+                if entity_id in (f"media_player.toniebox_box_{slug}", entity_id):
+                    return coordinator.client, hh_id, tb_id
+
+    return None, None, None
+
+
 def _slugify(text: str) -> str:
     import re
     text = text.lower().strip()
@@ -69,36 +123,20 @@ def _slugify(text: str) -> str:
     return text.strip("_")
 
 
+# ── Service registration ──────────────────────────────────────────────────────
+
 def _register_services(hass: HomeAssistant) -> None:
-    """Register all custom services."""
+    """Register all custom Toniebox services."""
     import voluptuous as vol
     from homeassistant.helpers import config_validation as cv
 
     if hass.services.has_service(DOMAIN, "clear_chapters"):
-        return
-
-    async def _find(entity_id: str):
-        for coordinator in hass.data.get(DOMAIN, {}).values():
-            for hh_id, hh in coordinator.data.get("households", {}).items():
-                for t_id, t in hh.get("creativetonies", {}).items():
-                    slug = _slugify(t.get("name", t_id))
-                    if entity_id in (f"media_player.toniebox_{slug}", entity_id):
-                        return coordinator.client, hh_id, t_id
-        return None, None, None
-
-    async def _find_toniebox(entity_id: str):
-        for coordinator in hass.data.get(DOMAIN, {}).values():
-            for hh_id, hh in coordinator.data.get("households", {}).items():
-                for tb_id, tb in hh.get("tonieboxes", {}).items():
-                    slug = _slugify(tb.get("name", tb_id))
-                    if entity_id in (f"media_player.toniebox_box_{slug}", entity_id):
-                        return coordinator.client, hh_id, tb_id
-        return None, None, None
+        return  # Already registered (e.g. multiple config entries)
 
     # ── Creative Tonie services ───────────────────────────────────────────────
 
     async def handle_clear_chapters(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.clear_chapters(hh_id, t_id)
             await _refresh_all(hass)
@@ -109,7 +147,7 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_sort_chapters(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.sort_chapters(hh_id, t_id, call.data.get("sort_by", "title"))
             await _refresh_all(hass)
@@ -123,7 +161,7 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_remove_chapter(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.remove_chapter(hh_id, t_id, call.data["chapter_id"])
             await _refresh_all(hass)
@@ -136,8 +174,30 @@ def _register_services(hass: HomeAssistant) -> None:
         }),
     )
 
+    async def handle_move_chapter(call):
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
+        if client:
+            try:
+                await client.move_chapter(
+                    hh_id, t_id,
+                    call.data["chapter_id"],
+                    call.data.get("direction", "up"),
+                )
+                await _refresh_all(hass)
+            except TonieCloudAPIError as err:
+                _LOGGER.error("move_chapter failed: %s", err)
+
+    hass.services.async_register(
+        DOMAIN, "move_chapter", handle_move_chapter,
+        schema=vol.Schema({
+            vol.Required("entity_id"): cv.string,
+            vol.Required("chapter_id"): cv.string,
+            vol.Optional("direction", default="up"): vol.In(["up", "down"]),
+        }),
+    )
+
     async def handle_rename_tonie(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.patch_creative_tonie(hh_id, t_id, {"name": call.data["name"]})
             await _refresh_all(hass)
@@ -151,7 +211,7 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_redeem_token(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.redeem_token_to_creative_tonie(hh_id, t_id, call.data["token"])
             await _refresh_all(hass)
@@ -165,7 +225,7 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_apply_tune(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.put_tonie_tune(hh_id, t_id, call.data["tune_id"])
             await _refresh_all(hass)
@@ -179,7 +239,7 @@ def _register_services(hass: HomeAssistant) -> None:
     )
 
     async def handle_remove_tune(call):
-        client, hh_id, t_id = await _find(call.data["entity_id"])
+        client, hh_id, t_id = await _find_creative_tonie(hass, call.data["entity_id"])
         if client:
             await client.delete_tonie_tune(hh_id, t_id)
             await _refresh_all(hass)
@@ -189,10 +249,46 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({vol.Required("entity_id"): cv.string}),
     )
 
+    async def handle_upload_audio(call):
+        entity_id = call.data["entity_id"]
+        file_path = call.data["file_path"]
+        title = call.data.get("title", "")
+
+        if not os.path.isfile(file_path):
+            _LOGGER.error("upload_audio: file not found: %s", file_path)
+            return
+
+        client, hh_id, t_id = await _find_creative_tonie(hass, entity_id)
+        if not client:
+            _LOGGER.error("upload_audio: entity not found: %s", entity_id)
+            return
+
+        filename = os.path.basename(file_path)
+        if not title:
+            title = os.path.splitext(filename)[0]
+
+        try:
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            await client.upload_and_add_chapter(hh_id, t_id, file_data, filename, title)
+            await _refresh_all(hass)
+            _LOGGER.info("upload_audio: successfully uploaded '%s' to %s", filename, entity_id)
+        except Exception as err:
+            _LOGGER.error("upload_audio failed for %s: %s", file_path, err)
+
+    hass.services.async_register(
+        DOMAIN, "upload_audio", handle_upload_audio,
+        schema=vol.Schema({
+            vol.Required("entity_id"): cv.string,
+            vol.Required("file_path"): cv.string,
+            vol.Optional("title", default=""): cv.string,
+        }),
+    )
+
     # ── Toniebox services ─────────────────────────────────────────────────────
 
     async def handle_rename_toniebox(call):
-        client, hh_id, tb_id = await _find_toniebox(call.data["entity_id"])
+        client, hh_id, tb_id = await _find_toniebox(hass, call.data["entity_id"])
         if client:
             await client.patch_toniebox(hh_id, tb_id, {"name": call.data["name"]})
             await _refresh_all(hass)
@@ -231,11 +327,39 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({}),
     )
 
+    # ── Invitation services ───────────────────────────────────────────────────
+
+    async def handle_accept_invitation(call):
+        invitation_id = call.data["invitation_id"]
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            await coordinator.client.accept_invitation(invitation_id)
+            await _refresh_all(hass)
+            return
+
+    hass.services.async_register(
+        DOMAIN, "accept_invitation", handle_accept_invitation,
+        schema=vol.Schema({vol.Required("invitation_id"): cv.string}),
+    )
+
+    async def handle_decline_invitation(call):
+        invitation_id = call.data["invitation_id"]
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            await coordinator.client.delete_invitation(invitation_id)
+            await _refresh_all(hass)
+            return
+
+    hass.services.async_register(
+        DOMAIN, "decline_invitation", handle_decline_invitation,
+        schema=vol.Schema({vol.Required("invitation_id"): cv.string}),
+    )
+
 
 async def _refresh_all(hass: HomeAssistant) -> None:
     for coordinator in hass.data.get(DOMAIN, {}).values():
         await coordinator.async_request_refresh()
 
+
+# ── Coordinator ───────────────────────────────────────────────────────────────
 
 class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator: fetches ALL data from Tonie Cloud."""
@@ -302,10 +426,11 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             if not hh_id:
                 continue
 
-            hh_data = {
+            hh_data: dict = {
                 "id": hh_id,
                 "name": hh.get("name", hh_id),
                 "creativetonies": {},
+                "contenttonies": {},
                 "tonieboxes": {},
                 "children": [],
                 "memberships": [],
@@ -342,6 +467,24 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Could not fetch creativetonies for %s: %s", hh_id, e)
 
+            # Content Tonies (purchased/assigned figurines)
+            try:
+                content_tonies = await self.client.get_content_tonies(hh_id)
+                for ct in content_tonies:
+                    ct_id = ct.get("id", "")
+                    if not ct_id:
+                        continue
+                    hh_data["contenttonies"][ct_id] = {
+                        "id": ct_id,
+                        "name": ct.get("name", ct_id),
+                        "image_url": ct.get("imageUrl") or ct.get("image_url"),
+                        "household_id": hh_id,
+                        "sales_id": ct.get("salesId") or ct.get("sales_id"),
+                        "locked": ct.get("locked", False),
+                    }
+            except Exception as e:
+                _LOGGER.debug("Could not fetch contenttonies for %s: %s", hh_id, e)
+
             # Tonieboxes
             try:
                 boxes = await self.client.get_tonieboxes(hh_id)
@@ -349,6 +492,22 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     b_id = box.get("id", "")
                     if not b_id:
                         continue
+
+                    placement = box.get("placement", {})
+                    placed_tonie = placement.get("tonie", {}) if placement else {}
+
+                    # Playback info — only fetch when a tonie is actively placed
+                    playback_info: dict = {}
+                    if placed_tonie and placed_tonie.get("id"):
+                        try:
+                            playback_info = await self.client.get_playback_info(
+                                b_id, placed_tonie["id"]
+                            )
+                        except Exception as e:
+                            _LOGGER.debug(
+                                "Playback info not available for box %s: %s", b_id, e
+                            )
+
                     hh_data["tonieboxes"][b_id] = {
                         "id": b_id,
                         "name": box.get("name", b_id),
@@ -357,8 +516,9 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "skip_mute_detection": box.get("skip_mute_detection", False),
                         "led": box.get("led", True),
                         "last_seen": box.get("last_seen"),
-                        "placement": box.get("placement", {}),
+                        "placement": placement,
                         "extras": box.get("extras", {}),
+                        "playback_info": playback_info,
                     }
             except Exception as e:
                 _LOGGER.debug("Could not fetch tonieboxes for %s: %s", hh_id, e)

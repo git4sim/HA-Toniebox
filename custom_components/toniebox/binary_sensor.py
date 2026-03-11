@@ -1,6 +1,8 @@
 """Binary sensor platform for Toniebox integration."""
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
+
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
@@ -10,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, TONIEBOX_ONLINE_TIMEOUT_MINUTES
 from .device_info import toniebox_device_info, creative_tonie_device_info
 
 
@@ -60,6 +62,12 @@ class _TbBin(CoordinatorEntity, BinarySensorEntity):
 
 
 class TonieboxOnlineSensor(_TbBin):
+    """Binary sensor that is True only when the Toniebox has been seen recently.
+
+    Uses TONIEBOX_ONLINE_TIMEOUT_MINUTES to determine staleness. This prevents
+    a box that has been offline for weeks from still showing as 'Online'.
+    """
+
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_icon = "mdi:wifi"
 
@@ -70,10 +78,22 @@ class TonieboxOnlineSensor(_TbBin):
 
     @property
     def is_on(self) -> bool:
-        return bool(
-            self._tb.get("placement", {}).get("tonie")
-            or self._tb.get("last_seen")
-        )
+        last_seen = self._tb.get("last_seen")
+        if not last_seen:
+            return False
+        try:
+            if isinstance(last_seen, (int, float)):
+                ts = datetime.fromtimestamp(last_seen, tz=timezone.utc)
+            else:
+                ts = datetime.fromisoformat(str(last_seen))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+            cutoff = datetime.now(timezone.utc) - timedelta(
+                minutes=TONIEBOX_ONLINE_TIMEOUT_MINUTES
+            )
+            return ts > cutoff
+        except (ValueError, TypeError, OSError):
+            return False
 
 
 class TonieboxLEDSensor(_TbBin):

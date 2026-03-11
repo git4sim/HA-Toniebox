@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .device_info import creative_tonie_device_info, toniebox_device_info
@@ -127,7 +128,10 @@ class CreativeToniePlayer(CoordinatorEntity, MediaPlayerEntity):
 # ── Toniebox Player ───────────────────────────────────────────────────────────
 
 class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
-    """Media player representing a physical Toniebox (shows placed Tonie)."""
+    """Media player representing a physical Toniebox.
+
+    Shows the currently placed Tonie and live playback position when available.
+    """
 
     _attr_has_entity_name = True
     _attr_name = None
@@ -155,14 +159,22 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
     @property
     def state(self) -> MediaPlayerState:
         placement = self._tb.get("placement", {})
-        if placement.get("tonie"):
+        if placement and placement.get("tonie"):
             return MediaPlayerState.PLAYING
         return MediaPlayerState.ON if self._tb.get("last_seen") else MediaPlayerState.OFF
 
     @property
     def media_title(self) -> str | None:
         tonie = self._tb.get("placement", {}).get("tonie")
-        return tonie.get("name", "Tonie aufgelegt") if tonie else "Kein Tonie aufgelegt"
+        if not tonie:
+            return "Kein Tonie aufgelegt"
+        # Show chapter title from playback info if available
+        info = self._tb.get("playback_info", {})
+        chapter_title = info.get("chapterTitle") or info.get("chapter_title")
+        tonie_name = tonie.get("name", "Tonie aufgelegt")
+        if chapter_title:
+            return f"{tonie_name} – {chapter_title}"
+        return tonie_name
 
     @property
     def media_image_url(self) -> str | None:
@@ -174,9 +186,31 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         return True
 
     @property
+    def media_position(self) -> int | None:
+        """Current playback position in seconds."""
+        info = self._tb.get("playback_info", {})
+        pos = info.get("elapsed") or info.get("position") or info.get("progressInSeconds")
+        return int(pos) if pos is not None else None
+
+    @property
+    def media_duration(self) -> int | None:
+        """Total duration of current track in seconds."""
+        info = self._tb.get("playback_info", {})
+        dur = info.get("duration") or info.get("totalSeconds") or info.get("durationInSeconds")
+        return int(dur) if dur is not None else None
+
+    @property
+    def media_position_updated_at(self):
+        """Timestamp of last position update — set to now if position is known."""
+        if self.media_position is not None:
+            return dt_util.utcnow()
+        return None
+
+    @property
     def extra_state_attributes(self) -> dict[str, Any]:
         tb = self._tb
-        return {
+        info = tb.get("playback_info", {})
+        attrs: dict[str, Any] = {
             "household_id": self._hh_id,
             "toniebox_id": self._tb_id,
             "led": tb.get("led", True),
@@ -185,3 +219,6 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
             "firmware": tb.get("firmware", {}),
             "placement": tb.get("placement", {}),
         }
+        if info:
+            attrs["playback_info"] = info
+        return attrs

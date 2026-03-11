@@ -23,6 +23,17 @@ _API_BASE = "https://api.tonie.cloud/v2"
 _CLIENT_ID = "meine-tonies"
 _TOKEN_REFRESH_BUFFER = 60
 
+# Supported audio content types by file extension
+_AUDIO_CONTENT_TYPES: dict[str, str] = {
+    "mp3": "audio/mpeg",
+    "ogg": "audio/ogg",
+    "wav": "audio/wav",
+    "flac": "audio/flac",
+    "m4a": "audio/mp4",
+    "aac": "audio/aac",
+    "opus": "audio/opus",
+}
+
 
 class TonieCloudAuthError(Exception):
     """Raised when authentication fails."""
@@ -448,7 +459,8 @@ class TonieCloudClient:
             payload,
         )
 
-    # Chapter helpers
+    # ── Chapter helpers ───────────────────────────────────────────────────────
+
     async def sort_chapters(self, household_id: str, tonie_id: str, sort_by: str = "title") -> None:
         """Sort chapters on a creative tonie."""
         tonie = await self.get_creative_tonie(household_id, tonie_id)
@@ -471,7 +483,38 @@ class TonieCloudClient:
         chapters = [c for c in tonie.get("chapters", []) if c.get("id") != chapter_id]
         await self.patch_creative_tonie(household_id, tonie_id, {"chapters": chapters})
 
+    async def move_chapter(
+        self, household_id: str, tonie_id: str, chapter_id: str, direction: str
+    ) -> None:
+        """Move a chapter one position up or down.
+
+        Args:
+            direction: 'up' to move earlier in the list, 'down' to move later.
+        """
+        tonie = await self.get_creative_tonie(household_id, tonie_id)
+        chapters = list(tonie.get("chapters", []))
+        idx = next(
+            (i for i, c in enumerate(chapters) if c.get("id") == chapter_id), None
+        )
+        if idx is None:
+            raise TonieCloudAPIError(f"Chapter {chapter_id} not found on tonie {tonie_id}")
+
+        if direction == "up" and idx > 0:
+            chapters[idx], chapters[idx - 1] = chapters[idx - 1], chapters[idx]
+        elif direction == "down" and idx < len(chapters) - 1:
+            chapters[idx], chapters[idx + 1] = chapters[idx + 1], chapters[idx]
+        else:
+            _LOGGER.debug("move_chapter: chapter already at boundary, no change needed")
+            return
+
+        await self.patch_creative_tonie(household_id, tonie_id, {"chapters": chapters})
+
     # ── /households/{id}/contenttonies ────────────────────────────────────────
+
+    async def get_content_tonies(self, household_id: str) -> list[dict]:
+        """GET /households/{hh}/contenttonies — all purchased/assigned content tonies."""
+        data = await self._get(f"/households/{household_id}/contenttonies")
+        return data if isinstance(data, list) else data.get("contenttonies", [])
 
     async def patch_content_tonie(self, household_id: str, tonie_id: str, payload: dict) -> dict:
         """PATCH /households/{hh}/contenttonies/{id} — e.g. lock to household."""
@@ -526,12 +569,44 @@ class TonieCloudClient:
     async def upload_file(self, file_data: bytes, filename: str) -> dict:
         """POST /file — upload audio file, returns file reference for chapter creation."""
         await self._ensure_auth()
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
+        content_type = _AUDIO_CONTENT_TYPES.get(ext, "audio/mpeg")
         form = aiohttp.FormData()
-        form.add_field("file", file_data, filename=filename, content_type="audio/mpeg")
+        form.add_field("file", file_data, filename=filename, content_type=content_type)
         url = f"{_API_BASE}/file"
         async with self._session.post(url, data=form, headers=self._auth_headers) as resp:
             resp.raise_for_status()
             return await resp.json()
+
+    async def upload_and_add_chapter(
+        self,
+        household_id: str,
+        tonie_id: str,
+        file_data: bytes,
+        filename: str,
+        title: str,
+    ) -> dict:
+        """Upload an audio file and append it as a new chapter on a Creative Tonie.
+
+        This is a two-step operation:
+          1. POST /file  →  get file ID
+          2. PATCH /creativetonies/{id}  →  append chapter with that file ID
+        """
+        # Step 1: upload
+        upload_result = await self.upload_file(file_data, filename)
+        file_id = upload_result.get("id") or upload_result.get("fileId")
+        if not file_id:
+            raise TonieCloudAPIError(
+                f"Upload succeeded but returned no file ID. Response: {upload_result}"
+            )
+
+        # Step 2: append chapter
+        tonie = await self.get_creative_tonie(household_id, tonie_id)
+        chapters = list(tonie.get("chapters", []))
+        chapters.append({"id": file_id, "title": title or filename})
+        return await self.patch_creative_tonie(
+            household_id, tonie_id, {"chapters": chapters}
+        )
 
     # ── /check-tune-status ────────────────────────────────────────────────────
 

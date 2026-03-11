@@ -7,6 +7,9 @@ CONF_PASSWORD = "password"
 # Coordinator
 UPDATE_INTERVAL_MINUTES = 5
 
+# A Toniebox is considered offline after this many minutes of no last_seen update
+TONIEBOX_ONLINE_TIMEOUT_MINUTES = 30
+
 # Platform names
 PLATFORM_MEDIA_PLAYER = "media_player"
 PLATFORM_SENSOR = "sensor"

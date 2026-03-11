@@ -21,14 +21,18 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list = []
 
-    # ── Household-level sensors (appear on Hub device) ────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
+        # ── Household-level sensors ───────────────────────────────────────────
         entities += [
-            HouseholdSensor(coordinator, hh_id, "account",     "Account",              "mdi:account",       lambda d: d.get("me", {}).get("email", "unbekannt")),
-            HouseholdCountSensor(coordinator, hh_id, "tonies",      "Creative Tonies",      "mdi:teddy-bear",    "creativetonies"),
-            HouseholdCountSensor(coordinator, hh_id, "tonieboxes",  "Tonieboxen",           "mdi:speaker",       "tonieboxes"),
-            HouseholdCountSensor(coordinator, hh_id, "children",    "Kinder",               "mdi:account-child", "children"),
-            HouseholdCountSensor(coordinator, hh_id, "members",     "Mitglieder",           "mdi:account-group", "memberships"),
+            HouseholdSensor(
+                coordinator, hh_id, "account", "Account", "mdi:account",
+                lambda d: d.get("me", {}).get("email", "unbekannt")
+            ),
+            HouseholdCountSensor(coordinator, hh_id, "tonies",       "Creative Tonies", "mdi:teddy-bear",        "creativetonies"),
+            HouseholdCountSensor(coordinator, hh_id, "content_tonies","Content Tonies",  "mdi:music-box-multiple", "contenttonies"),
+            HouseholdCountSensor(coordinator, hh_id, "tonieboxes",   "Tonieboxen",       "mdi:speaker",           "tonieboxes"),
+            HouseholdCountSensor(coordinator, hh_id, "children",     "Kinder",           "mdi:account-child",     "children"),
+            HouseholdCountSensor(coordinator, hh_id, "members",      "Mitglieder",       "mdi:account-group",     "memberships"),
             HouseholdNotifSensor(coordinator, hh_id),
             HouseholdInviteSensor(coordinator, hh_id),
         ]
@@ -63,7 +67,7 @@ class _Base(CoordinatorEntity, SensorEntity):
         return self.coordinator.data
 
 
-# ── Household sensors (on Hub device) ─────────────────────────────────────────
+# ── Household sensors ─────────────────────────────────────────────────────────
 
 class HouseholdSensor(_Base):
     _attr_has_entity_name = True
