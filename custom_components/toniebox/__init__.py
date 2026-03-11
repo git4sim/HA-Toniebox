@@ -26,6 +26,7 @@ PLATFORMS: list[Platform] = [
     Platform.SELECT,
     Platform.SWITCH,
     Platform.BINARY_SENSOR,
+    Platform.NUMBER,
 ]
 
 
@@ -470,6 +471,9 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # Content Tonies (purchased/assigned figurines)
             try:
                 content_tonies = await self.client.get_content_tonies(hh_id)
+                _LOGGER.debug(
+                    "contenttonies for %s: got %d items", hh_id, len(content_tonies)
+                )
                 for ct in content_tonies:
                     ct_id = ct.get("id", "")
                     if not ct_id:
@@ -480,10 +484,13 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "image_url": ct.get("imageUrl") or ct.get("image_url"),
                         "household_id": hh_id,
                         "sales_id": ct.get("salesId") or ct.get("sales_id"),
-                        "locked": ct.get("locked", False),
+                        "locked": ct.get("locked", ct.get("lock", False)),
+                        "language": ct.get("language"),
+                        "chapters": ct.get("chapters", []),
+                        "transcoding": ct.get("transcoding", False),
                     }
             except Exception as e:
-                _LOGGER.debug("Could not fetch contenttonies for %s: %s", hh_id, e)
+                _LOGGER.warning("Could not fetch contenttonies for %s: %s", hh_id, e)
 
             # Tonieboxes
             try:
@@ -509,13 +516,49 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             )
 
                     hh_data["tonieboxes"][b_id] = {
+                        # Identity
                         "id": b_id,
                         "name": box.get("name", b_id),
                         "household_id": hh_id,
-                        "firmware": box.get("firmware", {}),
-                        "skip_mute_detection": box.get("skip_mute_detection", False),
-                        "led": box.get("led", True),
+                        "image_url": box.get("imageUrl") or box.get("image_url"),
+                        "generation": box.get("generation"),
+                        "product": box.get("product"),
+                        "features": box.get("features", []),
+                        # State
+                        "online_state": box.get("onlineState"),
+                        "offline_mode": box.get("offlineMode", False),
+                        "firmware_version": box.get("firmwareVersion"),
+                        "ssid": box.get("ssid"),
+                        "ble_color_id": box.get("bleColorId"),
+                        "mac_address": box.get("macAddress"),
+                        "item_id": box.get("itemId"),
                         "last_seen": box.get("last_seen"),
+                        "settings_applied": box.get("settingsApplied", True),
+                        "registered_at": box.get("registeredAt"),
+                        # LED
+                        "led_level": box.get("ledLevel"),
+                        "lightring_brightness": box.get("lightringBrightness"),
+                        # Bedtime (tng only)
+                        "bedtime_lightring_brightness": box.get("bedtimeLightringBrightness"),
+                        "bedtime_lightring_color": box.get("bedtimeLightringColor"),
+                        "bedtime_max_volume": box.get("bedtimeMaxVolume"),
+                        "bedtime_max_headphone_volume": box.get("bedtimeMaxHeadphoneVolume"),
+                        # Playback behaviour
+                        "skipping_enabled": box.get("skippingEnabled"),
+                        "skipping_direction": box.get("skippingDirection"),
+                        "scrubbing_enabled": box.get("scrubbingEnabled"),
+                        # Volume limits
+                        "max_volume": box.get("maxVolume"),
+                        "max_headphone_volume": box.get("maxHeadphoneVolume"),
+                        # Older boxes only
+                        "accelerometer_enabled": box.get("accelerometerEnabled"),
+                        "tap_direction": box.get("tapDirection"),
+                        # Language / locale
+                        "language": box.get("language"),
+                        "timezone": box.get("timezone"),
+                        "age_mode": box.get("ageMode"),
+                        # Legacy / unchanged
+                        "firmware": box.get("firmware", {}),
                         "placement": placement,
                         "extras": box.get("extras", {}),
                         "playback_info": playback_info,

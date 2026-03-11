@@ -386,6 +386,36 @@ class TonieCloudClient:
         """DELETE /households/{hh}/invitations/{id}."""
         await self._delete(f"/households/{household_id}/invitations/{invitation_id}")
 
+
+    async def get_membership_permissions(self, household_id: str, membership_id: str) -> list:
+        """GET /households/{hh}/memberships/{id}/permissions — Creative Tonies this member can access."""
+        data = await self._get(
+            f"/households/{household_id}/memberships/{membership_id}/permissions"
+        )
+        return data if isinstance(data, list) else data.get("results", [])
+
+    async def put_membership(self, household_id: str, membership_id: str, payload: dict) -> dict:
+        """PUT /households/{hh}/memberships/{id} — change membership type / transfer ownership."""
+        return await self._put(
+            f"/households/{household_id}/memberships/{membership_id}", payload
+        )
+
+    async def get_household_invitation(self, household_id: str, invitation_id: str) -> dict:
+        """GET /households/{hh}/invitations/{id}."""
+        return await self._get(f"/households/{household_id}/invitations/{invitation_id}")
+
+    async def put_household_invitation(self, household_id: str, invitation_id: str, payload: dict) -> dict:
+        """PUT /households/{hh}/invitations/{id} — change invitation type."""
+        return await self._put(
+            f"/households/{household_id}/invitations/{invitation_id}", payload
+        )
+
+    async def patch_household_invitation(self, household_id: str, invitation_id: str, payload: dict) -> dict:
+        """PATCH /households/{hh}/invitations/{id}."""
+        return await self._patch(
+            f"/households/{household_id}/invitations/{invitation_id}", payload
+        )
+
     # ── /households/{id}/tonieboxes ───────────────────────────────────────────
 
     async def get_tonieboxes(self, household_id: str) -> list[dict]:
@@ -404,6 +434,21 @@ class TonieCloudClient:
     async def delete_toniebox(self, household_id: str, toniebox_id: str) -> None:
         """DELETE /households/{hh}/tonieboxes/{id} — remove from household."""
         await self._delete(f"/households/{household_id}/tonieboxes/{toniebox_id}")
+
+
+    async def put_toniebox(self, household_id: str, toniebox_id: str, payload: dict) -> dict:
+        """PUT /households/{hh}/tonieboxes/{id} — replace all Toniebox settings."""
+        return await self._put(f"/households/{household_id}/tonieboxes/{toniebox_id}", payload)
+
+    async def reset_toniebox(self, household_id: str, toniebox_id: str) -> dict:
+        """Factory-reset Toniebox settings (keep in household) via PATCH reset=true."""
+        return await self._patch(
+            f"/households/{household_id}/tonieboxes/{toniebox_id}", {"reset": True}
+        )
+
+    async def create_toniebox(self, household_id: str, payload: dict) -> dict:
+        """POST /households/{hh}/tonieboxes — add Toniebox to household."""
+        return await self._post(f"/households/{household_id}/tonieboxes", payload)
 
     async def get_toniebox_by_id(self, toniebox_id: str) -> dict:
         """GET /tonieboxes/{id} — direct lookup without household."""
@@ -514,7 +559,18 @@ class TonieCloudClient:
     async def get_content_tonies(self, household_id: str) -> list[dict]:
         """GET /households/{hh}/contenttonies — all purchased/assigned content tonies."""
         data = await self._get(f"/households/{household_id}/contenttonies")
-        return data if isinstance(data, list) else data.get("contenttonies", [])
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            # Try known wrapper keys — log actual keys if none match
+            for key in ("contenttonies", "data", "items", "results", "tonies"):
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+            _LOGGER.debug(
+                "get_content_tonies: unexpected response shape. "
+                "Top-level keys: %s", list(data.keys())
+            )
+        return []
 
     async def patch_content_tonie(self, household_id: str, tonie_id: str, payload: dict) -> dict:
         """PATCH /households/{hh}/contenttonies/{id} — e.g. lock to household."""
@@ -533,6 +589,23 @@ class TonieCloudClient:
             payload,
         )
 
+
+    async def patch_content_tonie_permission(
+        self, household_id: str, tonie_id: str, permission_id: str, payload: dict
+    ) -> dict:
+        """PATCH /households/{hh}/contenttonies/{id}/permissions/{pid}."""
+        return await self._patch(
+            f"/households/{household_id}/contenttonies/{tonie_id}/permissions/{permission_id}",
+            payload,
+        )
+
+    async def get_content_tonie_permissions(self, household_id: str, tonie_id: str) -> list:
+        """GET /households/{hh}/contenttonies/{id}/permissions."""
+        data = await self._get(
+            f"/households/{household_id}/contenttonies/{tonie_id}/permissions"
+        )
+        return data if isinstance(data, list) else data.get("results", [])
+
     # ── /households/{id}/discs ────────────────────────────────────────────────
 
     async def patch_disc(self, household_id: str, disc_id: str, payload: dict) -> dict:
@@ -548,6 +621,16 @@ class TonieCloudClient:
     ) -> dict:
         """PUT /households/{hh}/discs/{id}/permissions/{pid}."""
         return await self._put(
+            f"/households/{household_id}/discs/{disc_id}/permissions/{permission_id}",
+            payload,
+        )
+
+
+    async def patch_disc_permission(
+        self, household_id: str, disc_id: str, permission_id: str, payload: dict
+    ) -> dict:
+        """PATCH /households/{hh}/discs/{disc_pk}/permissions/{id}."""
+        return await self._patch(
             f"/households/{household_id}/discs/{disc_id}/permissions/{permission_id}",
             payload,
         )
@@ -634,6 +717,15 @@ class TonieCloudClient:
     async def patch_toniebox_setup_frontend_status(self, toniebox_id: str, payload: dict) -> dict:
         """PATCH /toniebox-setup/{toniebox_id}/frontendstatus."""
         return await self._patch(f"/toniebox-setup/{toniebox_id}/frontendstatus", payload)
+
+
+    async def create_toniebox_setup(self, setup_id: str, payload: dict) -> dict:
+        """POST /toniebox-setup/{id} — start automatic Toniebox setup."""
+        return await self._post(f"/toniebox-setup/{setup_id}", payload)
+
+    async def create_wifi_setup(self, setup_id: str, payload: dict) -> dict:
+        """POST /wifi-setup/{id} — start Wi-Fi-only setup."""
+        return await self._post(f"/wifi-setup/{setup_id}", payload)
 
     # ── /wifi-setup ───────────────────────────────────────────────────────────
 

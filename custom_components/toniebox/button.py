@@ -42,9 +42,10 @@ async def async_setup_entry(
             for desc in _TONIE_BUTTONS:
                 entities.append(CreativeTonieButton(coordinator, hh_id, t_id, desc))
 
-        # Per Toniebox: refresh button
+        # Per Toniebox: refresh + reset buttons
         for tb_id in hh.get("tonieboxes", {}):
             entities.append(TonieboxRefreshButton(coordinator, hh_id, tb_id))
+            entities.append(TonieboxResetButton(coordinator, hh_id, tb_id))
 
     async_add_entities(entities)
 
@@ -113,4 +114,29 @@ class TonieboxRefreshButton(CoordinatorEntity, ButtonEntity):
         return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
 
     async def async_press(self) -> None:
+        await self.coordinator.async_request_refresh()
+
+
+# ── Toniebox settings reset button ────────────────────────────────────────────
+
+class TonieboxResetButton(CoordinatorEntity, ButtonEntity):
+    """Resets all Toniebox settings to factory defaults (except name & language)."""
+    _attr_has_entity_name = True
+    _attr_name = "Auf Werkseinstellungen zurücksetzen"
+    _attr_icon = "mdi:restore"
+
+    def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
+        super().__init__(coordinator)
+        self._hh_id = hh_id
+        self._tb_id = tb_id
+        self._attr_unique_id = f"tb_{tb_id}_btn_reset"
+
+    @property
+    def device_info(self) -> dict:
+        return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
+
+    async def async_press(self) -> None:
+        await self.coordinator.client.patch_toniebox(
+            self._hh_id, self._tb_id, {"reset": True}
+        )
         await self.coordinator.async_request_refresh()
