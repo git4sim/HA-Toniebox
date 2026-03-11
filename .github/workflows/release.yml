@@ -8,17 +8,28 @@ jobs:
   release:
     name: Prepare Release ZIP
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
+
+      - name: Bump version in manifest.json
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"  # strip leading 'v'
+          jq --arg v "$VERSION" '.version = $v' \
+            custom_components/toniebox/manifest.json > /tmp/manifest.json
+          mv /tmp/manifest.json custom_components/toniebox/manifest.json
+          echo "Version set to $VERSION"
 
       - name: Create release ZIP
         run: |
           cd custom_components
-          zip -r ../toniebox.zip toniebox/
+          zip -r ../toniebox.zip toniebox/ -x "**/__pycache__/*" -x "**/*.pyc"
           cd ..
 
       - name: Upload ZIP to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: toniebox.zip
         env:

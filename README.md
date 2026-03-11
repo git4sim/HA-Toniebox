@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" alt="HA-Toniebox Logo" width="160" />
+  <img src="https://raw.githubusercontent.com/git4sim/HA-Toniebox/main/logo.png" alt="HA-Toniebox Logo" width="160" />
 </p>
 
 <h1 align="center">HA-Toniebox</h1>
