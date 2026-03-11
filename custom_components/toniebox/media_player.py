@@ -1,71 +1,89 @@
-"""Media Player platform for Toniebox creative tonies."""
-
+"""Media Player platform — one per Creative Tonie + one per Toniebox."""
 from __future__ import annotations
+
 import logging
 from typing import Any
 
 from homeassistant.components.media_player import (
-    MediaPlayerEntity, MediaPlayerEntityFeature, MediaPlayerState, MediaType,
+    MediaPlayerEntity,
+    MediaPlayerEntityFeature,
+    MediaPlayerState,
+    MediaType,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, ATTR_HOUSEHOLD_ID, ATTR_TONIE_ID, ATTR_CHAPTERS, ATTR_CHAPTER_COUNT, ATTR_IMAGE_URL
+from .const import DOMAIN
+from .device_info import creative_tonie_device_info, toniebox_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = []
+    entities: list = []
+
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for t_id in hh.get("creativetonies", {}):
-            entities.append(TonieboxMediaPlayer(coordinator, hh_id, t_id, entry))
+            entities.append(CreativeToniePlayer(coordinator, hh_id, t_id))
+        for tb_id in hh.get("tonieboxes", {}):
+            entities.append(TonieboxPlayer(coordinator, hh_id, tb_id))
+
     async_add_entities(entities, update_before_add=True)
 
 
-class TonieboxMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
-    """Represents a Creative Tonie as a HA media player entity."""
+# ── Creative Tonie Player ─────────────────────────────────────────────────────
+
+class CreativeToniePlayer(CoordinatorEntity, MediaPlayerEntity):
+    """Media player representing a Creative Tonie (chapters, cover art)."""
 
     _attr_has_entity_name = True
+    _attr_name = None                       # entity name = device name
     _attr_media_content_type = MediaType.MUSIC
     _attr_supported_features = (
-        MediaPlayerEntityFeature.BROWSE_MEDIA | MediaPlayerEntityFeature.PLAY_MEDIA
+        MediaPlayerEntityFeature.BROWSE_MEDIA
+        | MediaPlayerEntityFeature.PLAY_MEDIA
     )
 
-    def __init__(self, coordinator, household_id: str, tonie_id: str, entry: ConfigEntry) -> None:
+    def __init__(self, coordinator, hh_id: str, t_id: str) -> None:
         super().__init__(coordinator)
-        self._household_id = household_id
-        self._tonie_id = tonie_id
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_{household_id}_{tonie_id}"
+        self._hh_id = hh_id
+        self._t_id = t_id
+        self._attr_unique_id = f"ct_{t_id}_player"
 
     @property
-    def _tonie_data(self) -> dict:
+    def _tonie(self) -> dict:
         return (
             self.coordinator.data
-            .get("households", {}).get(self._household_id, {})
-            .get("creativetonies", {}).get(self._tonie_id, {})
+            .get("households", {}).get(self._hh_id, {})
+            .get("creativetonies", {}).get(self._t_id, {})
         )
 
     @property
-    def name(self) -> str:
-        return self._tonie_data.get("name", self._tonie_id)
+    def device_info(self) -> dict:
+        return creative_tonie_device_info(self.coordinator, self._hh_id, self._t_id)
 
     @property
     def state(self) -> MediaPlayerState:
-        return MediaPlayerState.ON
+        if self._tonie.get("transcoding"):
+            return MediaPlayerState.BUFFERING
+        return MediaPlayerState.ON if self._tonie.get("chapters") else MediaPlayerState.IDLE
 
     @property
     def media_title(self) -> str | None:
-        chapters = self._tonie_data.get("chapters", [])
-        return f"{len(chapters)} chapter(s)" if chapters else "No chapters"
+        chapters = self._tonie.get("chapters", [])
+        if not chapters:
+            return "Keine Kapitel"
+        mins = round(sum(c.get("seconds", 0) for c in chapters) / 60, 1)
+        return f"{len(chapters)} Kapitel · {mins} Min"
 
     @property
     def media_image_url(self) -> str | None:
-        return self._tonie_data.get("image_url")
+        return self._tonie.get("image_url")
 
     @property
     def media_image_remotely_accessible(self) -> bool:
@@ -73,36 +91,97 @@ class TonieboxMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        tonie = self._tonie_data
+        t = self._tonie
         return {
-            ATTR_HOUSEHOLD_ID: self._household_id,
-            ATTR_TONIE_ID: self._tonie_id,
-            ATTR_CHAPTER_COUNT: tonie.get("chapter_count", 0),
-            ATTR_IMAGE_URL: tonie.get("image_url"),
-            ATTR_CHAPTERS: [
-                {"id": ch.get("id",""), "title": ch.get("title",""),
-                 "duration_seconds": ch.get("seconds", 0), "transcoding": ch.get("transcoding", False)}
-                for ch in tonie.get("chapters", [])
+            "household_id": self._hh_id,
+            "tonie_id": self._t_id,
+            "chapter_count": t.get("chapter_count", 0),
+            "total_minutes": round(t.get("total_seconds", 0) / 60, 1),
+            "transcoding": t.get("transcoding", False),
+            "live": t.get("live", False),
+            "private": t.get("private", False),
+            "chapters": [
+                {
+                    "id": c.get("id", ""),
+                    "title": c.get("title", ""),
+                    "duration_seconds": c.get("seconds", 0),
+                    "transcoding": c.get("transcoding", False),
+                }
+                for c in t.get("chapters", [])
             ],
         }
 
-    @property
-    def device_info(self):
-        hh = self.coordinator.data.get("households", {}).get(self._household_id, {})
-        return {
-            "identifiers": {(DOMAIN, self._household_id)},
-            "name": hh.get("name", f"Toniebox Household"),
-            "manufacturer": "Boxine GmbH",
-            "model": "Toniebox Cloud",
-        }
-
-    async def async_play_media(self, media_type: MediaType | str, media_id: str, **kwargs: Any) -> None:
-        """Handle sort:/clear commands via media_id."""
+    async def async_play_media(
+        self, media_type: MediaType | str, media_id: str, **kwargs: Any
+    ) -> None:
+        client = self.coordinator.client
         if media_id.startswith("sort:"):
-            sort_by = media_id.split(":", 1)[1]
-            await self.coordinator.client.sort_chapters(self._household_id, self._tonie_id, sort_by)
+            await client.sort_chapters(self._hh_id, self._t_id, media_id.split(":", 1)[1])
         elif media_id == "clear":
-            await self.coordinator.client.clear_chapters(self._household_id, self._tonie_id)
+            await client.clear_chapters(self._hh_id, self._t_id)
         else:
-            _LOGGER.warning("Unsupported media_id command: %s", media_id)
+            _LOGGER.warning("Unsupported media_id: %s", media_id)
         await self.coordinator.async_request_refresh()
+
+
+# ── Toniebox Player ───────────────────────────────────────────────────────────
+
+class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
+    """Media player representing a physical Toniebox (shows placed Tonie)."""
+
+    _attr_has_entity_name = True
+    _attr_name = None
+    _attr_media_content_type = MediaType.MUSIC
+    _attr_supported_features = MediaPlayerEntityFeature.BROWSE_MEDIA
+
+    def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
+        super().__init__(coordinator)
+        self._hh_id = hh_id
+        self._tb_id = tb_id
+        self._attr_unique_id = f"tb_{tb_id}_player"
+
+    @property
+    def _tb(self) -> dict:
+        return (
+            self.coordinator.data
+            .get("households", {}).get(self._hh_id, {})
+            .get("tonieboxes", {}).get(self._tb_id, {})
+        )
+
+    @property
+    def device_info(self) -> dict:
+        return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
+
+    @property
+    def state(self) -> MediaPlayerState:
+        placement = self._tb.get("placement", {})
+        if placement.get("tonie"):
+            return MediaPlayerState.PLAYING
+        return MediaPlayerState.ON if self._tb.get("last_seen") else MediaPlayerState.OFF
+
+    @property
+    def media_title(self) -> str | None:
+        tonie = self._tb.get("placement", {}).get("tonie")
+        return tonie.get("name", "Tonie aufgelegt") if tonie else "Kein Tonie aufgelegt"
+
+    @property
+    def media_image_url(self) -> str | None:
+        tonie = self._tb.get("placement", {}).get("tonie", {})
+        return tonie.get("image_url") if tonie else None
+
+    @property
+    def media_image_remotely_accessible(self) -> bool:
+        return True
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        tb = self._tb
+        return {
+            "household_id": self._hh_id,
+            "toniebox_id": self._tb_id,
+            "led": tb.get("led", True),
+            "skip_mute_detection": tb.get("skip_mute_detection", False),
+            "last_seen": tb.get("last_seen"),
+            "firmware": tb.get("firmware", {}),
+            "placement": tb.get("placement", {}),
+        }
