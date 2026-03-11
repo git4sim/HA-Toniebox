@@ -1,263 +1,317 @@
 """Sensor platform for Toniebox integration."""
-
 from __future__ import annotations
 
 import logging
-from typing import Any
-
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, ATTR_HOUSEHOLD_ID, ATTR_TONIE_ID
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-CHAPTER_COUNT_DESCRIPTION = SensorEntityDescription(
-    key="chapter_count",
-    name="Chapter Count",
-    icon="mdi:music-box-multiple",
-    state_class=SensorStateClass.MEASUREMENT,
-    native_unit_of_measurement="chapters",
-)
-
-TOTAL_DURATION_DESCRIPTION = SensorEntityDescription(
-    key="total_duration",
-    name="Total Duration",
-    icon="mdi:clock-outline",
-    state_class=SensorStateClass.MEASUREMENT,
-    native_unit_of_measurement="min",
-)
-
-HOUSEHOLD_TONIE_COUNT_DESCRIPTION = SensorEntityDescription(
-    key="tonie_count",
-    name="Creative Tonies",
-    icon="mdi:bear",
-    state_class=SensorStateClass.MEASUREMENT,
-    native_unit_of_measurement="tonies",
-)
-
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Set up Toniebox sensor entities."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list[SensorEntity] = []
+    entities = []
 
-    for household_id, household in coordinator.data.get("households", {}).items():
-        # Per-household sensor
-        entities.append(
-            TonieboxHouseholdSensor(
-                coordinator=coordinator,
-                household_id=household_id,
-                entry=entry,
-                description=HOUSEHOLD_TONIE_COUNT_DESCRIPTION,
-            )
-        )
+    # User sensors
+    entities.append(TonieNotificationCountSensor(coordinator))
+    entities.append(TonieUserEmailSensor(coordinator))
+    entities.append(ToniePendingInvitationsSensor(coordinator))
 
-        # Per-creative-tonie sensors
-        for tonie_id, tonie in household.get("creativetonies", {}).items():
-            entities.append(
-                TonieboxChapterCountSensor(
-                    coordinator=coordinator,
-                    household_id=household_id,
-                    tonie_id=tonie_id,
-                    entry=entry,
-                    description=CHAPTER_COUNT_DESCRIPTION,
-                )
-            )
-            entities.append(
-                TonieboxTotalDurationSensor(
-                    coordinator=coordinator,
-                    household_id=household_id,
-                    tonie_id=tonie_id,
-                    entry=entry,
-                    description=TOTAL_DURATION_DESCRIPTION,
-                )
-            )
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        hh_name = hh.get("name", hh_id)
 
-    async_add_entities(entities, update_before_add=True)
+        # Per-household
+        entities.append(TonieCreativeToniCountSensor(coordinator, hh_id, hh_name))
+        entities.append(TonieTonieboxCountSensor(coordinator, hh_id, hh_name))
+        entities.append(TonieChildrenCountSensor(coordinator, hh_id, hh_name))
+        entities.append(TonieMembershipCountSensor(coordinator, hh_id, hh_name))
+
+        # Per Toniebox
+        for tb_id, tb in hh.get("tonieboxes", {}).items():
+            entities.append(TonieboxFirmwareSensor(coordinator, hh_id, tb_id, tb.get("name", tb_id)))
+            entities.append(TonieboxLastSeenSensor(coordinator, hh_id, tb_id, tb.get("name", tb_id)))
+
+        # Per Creative Tonie
+        for t_id, tonie in hh.get("creativetonies", {}).items():
+            t_name = tonie.get("name", t_id)
+            entities.append(TonieChapterCountSensor(coordinator, hh_id, t_id, t_name))
+            entities.append(TonieTotalDurationSensor(coordinator, hh_id, t_id, t_name))
+
+    async_add_entities(entities)
 
 
-class TonieboxHouseholdSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing the number of creative tonies in a household."""
+# ── Base ──────────────────────────────────────────────────────────────────────
 
-    _attr_has_entity_name = True
-
-    def __init__(
-        self,
-        coordinator,
-        household_id: str,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialize the sensor."""
+class TonieBaseSensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator):
         super().__init__(coordinator)
-        self._household_id = household_id
-        self._entry = entry
-        self.entity_description = description
-        self._attr_unique_id = f"{entry.entry_id}_{household_id}_{description.key}"
 
     @property
-    def _household_data(self) -> dict:
-        return (
-            self.coordinator.data.get("households", {}).get(self._household_id, {})
-        )
+    def _data(self):
+        return self.coordinator.data
+
+
+# ── Global sensors ────────────────────────────────────────────────────────────
+
+class TonieNotificationCountSensor(TonieBaseSensor):
+    _attr_icon = "mdi:bell"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_notification_count"
+        self._attr_name = "Toniebox Notifications"
 
     @property
-    def native_value(self) -> int:
-        """Return number of creative tonies."""
-        return len(self._household_data.get("creativetonies", {}))
+    def native_value(self):
+        return len(self._data.get("notifications", []))
 
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return list of creative tonie names."""
-        creativetonies = self._household_data.get("creativetonies", {})
+    def extra_state_attributes(self):
+        return {"notifications": self._data.get("notifications", [])}
+
+
+class TonieUserEmailSensor(TonieBaseSensor):
+    _attr_icon = "mdi:account"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_user_email"
+        self._attr_name = "Toniebox Account"
+
+    @property
+    def native_value(self):
+        return self._data.get("me", {}).get("email", "unknown")
+
+    @property
+    def extra_state_attributes(self):
+        me = self._data.get("me", {})
         return {
-            "tonie_names": [t.get("name", tid) for tid, t in creativetonies.items()],
-            ATTR_HOUSEHOLD_ID: self._household_id,
+            "locale": me.get("locale"),
+            "newsletter": me.get("newsletter"),
         }
+
+
+class ToniePendingInvitationsSensor(TonieBaseSensor):
+    _attr_icon = "mdi:email-plus"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_pending_invitations"
+        self._attr_name = "Toniebox Pending Invitations"
+
+    @property
+    def native_value(self):
+        return len(self._data.get("invitations", []))
+
+    @property
+    def extra_state_attributes(self):
+        return {"invitations": self._data.get("invitations", [])}
+
+
+# ── Household sensors ─────────────────────────────────────────────────────────
+
+class TonieHouseholdBaseSensor(TonieBaseSensor):
+    def __init__(self, coordinator, hh_id, hh_name):
+        super().__init__(coordinator)
+        self._hh_id = hh_id
+        self._hh_name = hh_name
+
+    @property
+    def _hh(self):
+        return self._data.get("households", {}).get(self._hh_id, {})
 
     @property
     def device_info(self):
-        """Return device info."""
-        household = self._household_data
         return {
-            "identifiers": {(DOMAIN, self._household_id)},
-            "name": household.get("name", f"Toniebox Household {self._household_id[:8]}"),
+            "identifiers": {(DOMAIN, self._hh_id)},
+            "name": self._hh_name,
             "manufacturer": "Boxine GmbH",
-            "model": "Toniebox Cloud",
+            "model": "Household",
         }
 
 
-class TonieboxChapterCountSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing the number of chapters on a creative tonie."""
+class TonieCreativeToniCountSensor(TonieHouseholdBaseSensor):
+    _attr_icon = "mdi:teddy-bear"
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    _attr_has_entity_name = True
+    def __init__(self, coordinator, hh_id, hh_name):
+        super().__init__(coordinator, hh_id, hh_name)
+        self._attr_unique_id = f"{hh_id}_creative_tonie_count"
+        self._attr_name = f"{hh_name} Creative Tonies"
 
-    def __init__(
-        self,
-        coordinator,
-        household_id: str,
-        tonie_id: str,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialize the sensor."""
+    @property
+    def native_value(self):
+        return len(self._hh.get("creativetonies", {}))
+
+
+class TonieTonieboxCountSensor(TonieHouseholdBaseSensor):
+    _attr_icon = "mdi:speaker"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, hh_id, hh_name):
+        super().__init__(coordinator, hh_id, hh_name)
+        self._attr_unique_id = f"{hh_id}_toniebox_count"
+        self._attr_name = f"{hh_name} Tonieboxes"
+
+    @property
+    def native_value(self):
+        return len(self._hh.get("tonieboxes", {}))
+
+
+class TonieChildrenCountSensor(TonieHouseholdBaseSensor):
+    _attr_icon = "mdi:account-child"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, hh_id, hh_name):
+        super().__init__(coordinator, hh_id, hh_name)
+        self._attr_unique_id = f"{hh_id}_children_count"
+        self._attr_name = f"{hh_name} Children"
+
+    @property
+    def native_value(self):
+        return len(self._hh.get("children", []))
+
+    @property
+    def extra_state_attributes(self):
+        return {"children": self._hh.get("children", [])}
+
+
+class TonieMembershipCountSensor(TonieHouseholdBaseSensor):
+    _attr_icon = "mdi:account-group"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, hh_id, hh_name):
+        super().__init__(coordinator, hh_id, hh_name)
+        self._attr_unique_id = f"{hh_id}_membership_count"
+        self._attr_name = f"{hh_name} Members"
+
+    @property
+    def native_value(self):
+        return len(self._hh.get("memberships", []))
+
+
+# ── Toniebox sensors ──────────────────────────────────────────────────────────
+
+class TonieboxBaseSensor(TonieBaseSensor):
+    def __init__(self, coordinator, hh_id, tb_id, tb_name):
         super().__init__(coordinator)
-        self._household_id = household_id
-        self._tonie_id = tonie_id
-        self._entry = entry
-        self.entity_description = description
-        self._attr_unique_id = f"{entry.entry_id}_{household_id}_{tonie_id}_{description.key}"
+        self._hh_id = hh_id
+        self._tb_id = tb_id
+        self._tb_name = tb_name
 
     @property
-    def _tonie_data(self) -> dict:
-        return (
-            self.coordinator.data
-            .get("households", {})
-            .get(self._household_id, {})
-            .get("creativetonies", {})
-            .get(self._tonie_id, {})
-        )
-
-    @property
-    def name(self) -> str:
-        tonie_name = self._tonie_data.get("name", self._tonie_id)
-        return f"{tonie_name} Chapter Count"
-
-    @property
-    def native_value(self) -> int:
-        return self._tonie_data.get("chapter_count", 0)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        chapters = self._tonie_data.get("chapters", [])
-        return {
-            ATTR_HOUSEHOLD_ID: self._household_id,
-            ATTR_TONIE_ID: self._tonie_id,
-            "chapter_titles": [ch.get("title", "") for ch in chapters],
-        }
+    def _tb(self):
+        return self._data.get("households", {}).get(self._hh_id, {}).get("tonieboxes", {}).get(self._tb_id, {})
 
     @property
     def device_info(self):
-        household = self.coordinator.data.get("households", {}).get(self._household_id, {})
         return {
-            "identifiers": {(DOMAIN, self._household_id)},
-            "name": household.get("name", f"Toniebox Household {self._household_id[:8]}"),
+            "identifiers": {(DOMAIN, self._tb_id)},
+            "name": self._tb_name,
             "manufacturer": "Boxine GmbH",
-            "model": "Toniebox Cloud",
+            "model": "Toniebox",
+            "via_device": (DOMAIN, self._hh_id),
         }
 
 
-class TonieboxTotalDurationSensor(CoordinatorEntity, SensorEntity):
-    """Sensor showing the total audio duration on a creative tonie."""
+class TonieboxFirmwareSensor(TonieboxBaseSensor):
+    _attr_icon = "mdi:chip"
 
-    _attr_has_entity_name = True
+    def __init__(self, coordinator, hh_id, tb_id, tb_name):
+        super().__init__(coordinator, hh_id, tb_id, tb_name)
+        self._attr_unique_id = f"{tb_id}_firmware"
+        self._attr_name = f"{tb_name} Firmware"
 
-    def __init__(
-        self,
-        coordinator,
-        household_id: str,
-        tonie_id: str,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialize the sensor."""
+    @property
+    def native_value(self):
+        fw = self._tb.get("firmware", {})
+        return fw.get("version") or fw.get("toniesVersion") or "unknown"
+
+    @property
+    def extra_state_attributes(self):
+        return {"firmware": self._tb.get("firmware", {})}
+
+
+class TonieboxLastSeenSensor(TonieboxBaseSensor):
+    _attr_icon = "mdi:clock-outline"
+
+    def __init__(self, coordinator, hh_id, tb_id, tb_name):
+        super().__init__(coordinator, hh_id, tb_id, tb_name)
+        self._attr_unique_id = f"{tb_id}_last_seen"
+        self._attr_name = f"{tb_name} Last Seen"
+
+    @property
+    def native_value(self):
+        return self._tb.get("last_seen")
+
+
+# ── Creative Tonie sensors ────────────────────────────────────────────────────
+
+class TonieBaseTonieSensor(TonieBaseSensor):
+    def __init__(self, coordinator, hh_id, t_id, t_name):
         super().__init__(coordinator)
-        self._household_id = household_id
-        self._tonie_id = tonie_id
-        self._entry = entry
-        self.entity_description = description
-        self._attr_unique_id = f"{entry.entry_id}_{household_id}_{tonie_id}_{description.key}"
+        self._hh_id = hh_id
+        self._t_id = t_id
+        self._t_name = t_name
 
     @property
-    def _tonie_data(self) -> dict:
-        return (
-            self.coordinator.data
-            .get("households", {})
-            .get(self._household_id, {})
-            .get("creativetonies", {})
-            .get(self._tonie_id, {})
-        )
-
-    @property
-    def name(self) -> str:
-        tonie_name = self._tonie_data.get("name", self._tonie_id)
-        return f"{tonie_name} Total Duration"
-
-    @property
-    def native_value(self) -> float:
-        """Return total duration in minutes (rounded to 1 decimal)."""
-        chapters = self._tonie_data.get("chapters", [])
-        total_seconds = sum(ch.get("seconds", 0) for ch in chapters)
-        return round(total_seconds / 60, 1)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        chapters = self._tonie_data.get("chapters", [])
-        total_seconds = sum(ch.get("seconds", 0) for ch in chapters)
-        return {
-            ATTR_HOUSEHOLD_ID: self._household_id,
-            ATTR_TONIE_ID: self._tonie_id,
-            "total_seconds": total_seconds,
-        }
+    def _tonie(self):
+        return self._data.get("households", {}).get(self._hh_id, {}).get("creativetonies", {}).get(self._t_id, {})
 
     @property
     def device_info(self):
-        household = self.coordinator.data.get("households", {}).get(self._household_id, {})
         return {
-            "identifiers": {(DOMAIN, self._household_id)},
-            "name": household.get("name", f"Toniebox Household {self._household_id[:8]}"),
+            "identifiers": {(DOMAIN, self._t_id)},
+            "name": self._t_name,
             "manufacturer": "Boxine GmbH",
-            "model": "Toniebox Cloud",
+            "model": "Creative Tonie",
+            "via_device": (DOMAIN, self._hh_id),
         }
+
+
+class TonieChapterCountSensor(TonieBaseTonieSensor):
+    _attr_icon = "mdi:format-list-numbered"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, hh_id, t_id, t_name):
+        super().__init__(coordinator, hh_id, t_id, t_name)
+        self._attr_unique_id = f"{t_id}_chapter_count"
+        self._attr_name = f"{t_name} Chapter Count"
+
+    @property
+    def native_value(self):
+        return self._tonie.get("chapter_count", 0)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "chapters": [
+                {"title": c["title"], "seconds": c["seconds"], "transcoding": c["transcoding"]}
+                for c in self._tonie.get("chapters", [])
+            ]
+        }
+
+
+class TonieTotalDurationSensor(TonieBaseTonieSensor):
+    _attr_icon = "mdi:timer-outline"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "min"
+
+    def __init__(self, coordinator, hh_id, t_id, t_name):
+        super().__init__(coordinator, hh_id, t_id, t_name)
+        self._attr_unique_id = f"{t_id}_total_duration"
+        self._attr_name = f"{t_name} Total Duration"
+
+    @property
+    def native_value(self):
+        total = self._tonie.get("total_seconds", 0)
+        return round(total / 60, 1)

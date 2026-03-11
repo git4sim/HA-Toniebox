@@ -1,61 +1,29 @@
-upload_audio:
-  name: Upload Audio
-  description: Upload a local audio file as a new chapter to a Creative Tonie.
-  fields:
-    entity_id:
-      name: Creative Tonie
-      description: The media_player entity of the target Creative Tonie.
-      required: true
-      selector:
-        entity:
-          domain: media_player
-          integration: toniebox
-    file_path:
-      name: File Path
-      description: >
-        Absolute path to the audio file on the Home Assistant host.
-        Example: /config/tonie_audio/bedtime_story.mp3
-      required: true
-      example: /config/tonie_audio/story.mp3
-      selector:
-        text:
-    title:
-      name: Chapter Title
-      description: Title for the chapter as shown in the Toniebox app.
-      required: false
-      example: "Bedtime Story"
-      selector:
-        text:
-
 clear_chapters:
   name: Clear Chapters
   description: Remove all chapters from a Creative Tonie.
   fields:
     entity_id:
-      name: Creative Tonie
-      description: The media_player entity of the target Creative Tonie.
+      name: Entity
+      description: The Creative Tonie media player entity.
       required: true
       selector:
         entity:
           domain: media_player
-          integration: toniebox
 
 sort_chapters:
   name: Sort Chapters
-  description: Sort the chapters on a Creative Tonie by the specified criteria.
+  description: Sort chapters on a Creative Tonie.
   fields:
     entity_id:
-      name: Creative Tonie
-      description: The media_player entity of the target Creative Tonie.
+      name: Entity
+      description: The Creative Tonie media player entity.
       required: true
       selector:
         entity:
           domain: media_player
-          integration: toniebox
     sort_by:
       name: Sort By
-      description: Sorting criteria for chapters.
-      required: false
+      description: How to sort chapters.
       default: title
       selector:
         select:
@@ -63,3 +31,120 @@ sort_chapters:
             - title
             - filename
             - date
+
+remove_chapter:
+  name: Remove Chapter
+  description: Remove a single chapter by its ID.
+  fields:
+    entity_id:
+      name: Entity
+      description: The Creative Tonie media player entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    chapter_id:
+      name: Chapter ID
+      description: The ID of the chapter to remove.
+      required: true
+      selector:
+        text:
+
+rename_tonie:
+  name: Rename Tonie
+  description: Rename a Creative Tonie.
+  fields:
+    entity_id:
+      name: Entity
+      description: The Creative Tonie media player entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    name:
+      name: New Name
+      description: The new name for the Tonie.
+      required: true
+      selector:
+        text:
+
+rename_toniebox:
+  name: Rename Toniebox
+  description: Rename a Toniebox device.
+  fields:
+    entity_id:
+      name: Entity
+      description: The Toniebox entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    name:
+      name: New Name
+      description: The new name for the Toniebox.
+      required: true
+      selector:
+        text:
+
+redeem_content_token:
+  name: Redeem Content Token
+  description: Redeem a free content token onto a Creative Tonie.
+  fields:
+    entity_id:
+      name: Entity
+      description: The Creative Tonie media player entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    token:
+      name: Token
+      description: The content token to redeem.
+      required: true
+      selector:
+        text:
+
+apply_tune:
+  name: Apply Tune
+  description: Apply a purchased Tune to a Tonie.
+  fields:
+    entity_id:
+      name: Entity
+      description: The Tonie entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    tune_id:
+      name: Tune ID
+      description: The ID of the Tune to apply.
+      required: true
+      selector:
+        text:
+
+remove_tune:
+  name: Remove Tune
+  description: Remove the active Tune from a Tonie (restores original content).
+  fields:
+    entity_id:
+      name: Entity
+      description: The Tonie entity.
+      required: true
+      selector:
+        entity:
+          domain: media_player
+
+redeem_voucher:
+  name: Redeem Voucher
+  description: Redeem a Tunes voucher code.
+  fields:
+    code:
+      name: Voucher Code
+      description: The voucher code to redeem.
+      required: true
+      selector:
+        text:
+
+dismiss_all_notifications:
+  name: Dismiss All Notifications
+  description: Clear all Toniebox account notifications.
