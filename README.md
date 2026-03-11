@@ -13,9 +13,9 @@
   <a href="https://github.com/hacs/integration">
     <img src="https://img.shields.io/badge/HACS-Custom-orange.svg?logo=home-assistant&logoColor=white" alt="HACS Custom"/>
   </a>
-  <img src="https://img.shields.io/github/v/release/YOUR_USERNAME/HA-Toniebox?label=version&color=blue" alt="Version"/>
+  <img src="https://img.shields.io/github/v/release/git4sim/HA-Toniebox?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/HA-2023.1%2B-brightgreen?logo=home-assistant" alt="Home Assistant"/>
-  <img src="https://img.shields.io/github/license/YOUR_USERNAME/HA-Toniebox?color=lightgrey" alt="MIT License"/>
+  <img src="https://img.shields.io/github/license/git4sim/HA-Toniebox?color=lightgrey" alt="MIT License"/>
   <img src="https://img.shields.io/badge/vibecoded-%F0%9F%A4%96-blueviolet" alt="Vibecoded"/>
 </p>
 
@@ -49,16 +49,16 @@
 
 Adding HA-Toniebox to your Home Assistant can be done via HACS using this button:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=YOUR_USERNAME&repository=HA-Toniebox&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=git4sim&repository=HA-Toniebox&category=integration)
 
 > [!NOTE]
-> If the button above doesn't work, add `https://github.com/YOUR_USERNAME/HA-Toniebox` manually as a Custom Repository of type **Integration** in HACS, then search for **Toniebox** and click Download.
+> If the button above doesn't work, add `https://github.com/git4sim/HA-Toniebox` manually as a Custom Repository of type **Integration** in HACS, then search for **Toniebox** and click Download.
 
 After downloading, restart Home Assistant.
 
 ### Manual Installation
 
-Copy the `custom_components/toniebox/` folder from the [latest release](https://github.com/YOUR_USERNAME/HA-Toniebox/releases/latest) into your HA config directory:
+Copy the `custom_components/toniebox/` folder from the [latest release](https://github.com/git4sim/HA-Toniebox/releases/latest) into your HA config directory:
 
 ```
 /config/custom_components/toniebox/
@@ -234,4 +234,4 @@ PATCH https://api.tonie.cloud/v2/households/{id}/creativetonies/{id}
 
 ---
 
-<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/YOUR_USERNAME/HA-Toniebox/issues">Report a Bug</a></p>
+<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Report a Bug</a></p>
