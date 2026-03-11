@@ -13,6 +13,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, TONIEBOX_ONLINE_TIMEOUT_MINUTES
+from .content_tonie import (
+    ContentTonieActiveBinarySensor,
+    ContentTonieLockBinarySensor,
+    ContentTonieTranscodingBinarySensor,
+)
 from .device_info import toniebox_device_info, creative_tonie_device_info
 
 
@@ -33,6 +38,23 @@ async def async_setup_entry(
                 TonieTranscodingSensor(coordinator, hh_id, t_id),
                 TonieLiveSensor(coordinator, hh_id, t_id),
                 ToniePrivateSensor(coordinator, hh_id, t_id),
+            ]
+
+    # ── Content Tonie binary sensors ─────────────────────────────────────────
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            entities += [
+                ContentTonieActiveBinarySensor(coordinator, hh_id, ct_id),
+                ContentTonieLockBinarySensor(coordinator, hh_id, ct_id),
+                ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
+            ]
+
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            entities += [
+                ContentTonieActiveBinarySensor(coordinator, hh_id, ct_id),
+                ContentTonieLockBinarySensor(coordinator, hh_id, ct_id),
+                ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
             ]
 
     async_add_entities(entities)

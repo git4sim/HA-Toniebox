@@ -9,6 +9,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .content_tonie import ContentTonieTuneRemoveButton
+from .content_tonie import ContentTonieTuneRemoveButton
 from .device_info import creative_tonie_device_info, toniebox_device_info, household_device_info
 
 
@@ -46,6 +48,15 @@ async def async_setup_entry(
         for tb_id in hh.get("tonieboxes", {}):
             entities.append(TonieboxRefreshButton(coordinator, hh_id, tb_id))
             entities.append(TonieboxResetButton(coordinator, hh_id, tb_id))
+
+    # ── Content Tonie buttons ─────────────────────────────────────────────────
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
+
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
 
     async_add_entities(entities)
 
@@ -124,6 +135,7 @@ class TonieboxResetButton(CoordinatorEntity, ButtonEntity):
     _attr_has_entity_name = True
     _attr_name = "Auf Werkseinstellungen zurücksetzen"
     _attr_icon = "mdi:restore"
+    _attr_entity_registry_enabled_default = False  # deliberately hidden by default — destructive action
 
     def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
         super().__init__(coordinator)

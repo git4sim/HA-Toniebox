@@ -478,16 +478,42 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     ct_id = ct.get("id", "")
                     if not ct_id:
                         continue
+                    # Chapters normalisieren
+                    raw_chapters = ct.get("chapters", [])
+                    chapters = [
+                        {
+                            "id": ch.get("id", ""),
+                            "title": ch.get("title", ""),
+                            "seconds": ch.get("seconds", 0),
+                            "transcoding": ch.get("transcoding", False),
+                        }
+                        for ch in raw_chapters
+                        if isinstance(ch, dict)
+                    ]
                     hh_data["contenttonies"][ct_id] = {
                         "id": ct_id,
                         "name": ct.get("name", ct_id),
                         "image_url": ct.get("imageUrl") or ct.get("image_url"),
                         "household_id": hh_id,
+                        # Sales-ID und Serien-Info
                         "sales_id": ct.get("salesId") or ct.get("sales_id"),
+                        "item_id": ct.get("itemId") or ct.get("item_id"),
+                        # Haushalt-Lock
                         "locked": ct.get("locked", ct.get("lock", False)),
+                        # Multi-language Content Tonies
                         "language": ct.get("language"),
-                        "chapters": ct.get("chapters", []),
+                        # Kapitel / Inhalt
+                        "chapters": chapters,
+                        "chapter_count": len(chapters),
+                        "total_seconds": sum(c["seconds"] for c in chapters),
+                        # Transkodierungs-Status
                         "transcoding": ct.get("transcoding", False),
+                        "transcoding_errors": ct.get("transcodingErrors", []),
+                        # Auf welcher Box liegt die Figur gerade?
+                        # API liefert ggf. tonieboxId im Content Tonie Objekt
+                        "toniebox_id": ct.get("tonieboxId") or ct.get("toniebox_id"),
+                        # Tune aktiv?
+                        "tune_id": ct.get("tuneId") or ct.get("tune_id"),
                     }
             except Exception as e:
                 _LOGGER.warning("Could not fetch contenttonies for %s: %s", hh_id, e)

@@ -8,10 +8,22 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .content_tonie import (
+    ContentTonieCurrentBoxSensor,
+    ContentTonieChapterCountSensor,
+    ContentTonieDurationSensor,
+    ContentTonieSalesSensor,
+)
 from .device_info import (
     household_device_info,
     toniebox_device_info,
     creative_tonie_device_info,
+)
+from .content_tonie import (
+    ContentTonieCurrentBoxSensor,
+    ContentTonieChapterCountSensor,
+    ContentTonieDurationSensor,
+    ContentTonieSalesSensor,
 )
 
 
@@ -63,6 +75,25 @@ async def async_setup_entry(
                 TonieDurationSensor(coordinator, hh_id, t_id),
                 CreativeTonieTranscodingSensor(coordinator, hh_id, t_id),
                 CreativeTonieCapacitySensor(coordinator, hh_id, t_id),
+            ]
+
+        # ── Content Tonie sensors (one device per figurine) ───────────────────
+        for ct_id in hh.get("contenttonies", {}):
+            entities += [
+                ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
+                ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
+                ContentTonieDurationSensor(coordinator, hh_id, ct_id),
+                ContentTonieSalesSensor(coordinator, hh_id, ct_id),
+            ]
+
+    # Content Tonie sensors — one device per figurine
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            entities += [
+                ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
+                ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
+                ContentTonieDurationSensor(coordinator, hh_id, ct_id),
+                ContentTonieSalesSensor(coordinator, hh_id, ct_id),
             ]
 
     async_add_entities(entities)
