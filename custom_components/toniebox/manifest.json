@@ -2,12 +2,15 @@
   "domain": "toniebox",
   "name": "Toniebox",
   "version": "1.1.0",
-  "documentation": "https://github.com/your-repo/ha-toniebox",
-  "issue_tracker": "https://github.com/your-repo/ha-toniebox/issues",
+  "documentation": "https://github.com/git4sim/HA-Toniebox",
+  "issue_tracker": "https://github.com/git4sim/HA-Toniebox/issues",
   "requirements": [],
   "dependencies": [],
-  "codeowners": [],
+  "codeowners": [
+    "@git4sim"
+  ],
   "config_flow": true,
   "iot_class": "cloud_polling",
-  "integration_type": "hub"
+  "integration_type": "hub",
+  "logo": "logo.png"
 }
