@@ -5,8 +5,8 @@
 <h1 align="center">HA-Toniebox</h1>
 
 <p align="center">
-  <strong>Unofficial Home Assistant Integration for the Toniebox / Tonie Cloud</strong><br/>
-  Manage your Creative Tonies — browse chapters, sort & clear content — directly from Home Assistant.
+  <strong>Unofficial Home Assistant Integration for Toniebox / Tonie Cloud</strong><br/>
+  Vollständige Integration deiner Creative Tonies und Tonieboxen in Home Assistant.
 </p>
 
 <p align="center">
@@ -22,161 +22,249 @@
 ---
 
 > [!WARNING]
-> **Disclaimer — Please read before using**
+> **Disclaimer — Bitte vor der Nutzung lesen**
 >
-> This project is **not affiliated with, endorsed by, or connected to Boxine GmbH** (the makers of Toniebox / tonies.de) **in any way**.
-> It uses the undocumented Tonie Cloud REST API which **may change or break at any time without notice**.
-> Use entirely **at your own risk**. No warranty, no guarantee, no support from Boxine.
+> Dieses Projekt steht in **keiner Verbindung zu Boxine GmbH** (Hersteller von Toniebox / tonies.de) und wird von diesen weder unterstützt noch empfohlen.
+> Es nutzt die offizielle Tonie Cloud REST API, die **sich jederzeit ohne Ankündigung ändern kann**.
+> Nutzung **auf eigene Gefahr**. Keine Garantie, kein Support durch Boxine.
 >
-> 🤖 This integration was **vibecoded** — generated with AI assistance ([Claude by Anthropic](https://anthropic.com)) and iteratively debugged. It is a community experiment, not production software.
+> 🤖 Diese Integration wurde **vibecoded** — mit KI-Unterstützung ([Claude by Anthropic](https://anthropic.com)) entwickelt und gegen ein echtes Toniebox-Konto getestet.
 
 ---
 
 ## Features
 
-- 🧸 Each Creative Tonie appears as a **media player entity** with cover art and chapter list
-- 📊 **Sensors** for chapter count, total duration, and household overview
-- 🔘 **Buttons** to sort chapters (by title / filename / date), clear all chapters, refresh
-- 🔽 **Select entity** to choose sort order and apply with one tap
-- ⚙️ **Services** for automation: `sort_chapters`, `clear_chapters`, `upload_audio`
-- 🔐 Keycloak OpenID Connect authentication — same login as the Toniebox app
-- 🛠️ Config Flow setup — **no YAML required**
-- 📦 HACS compatible
+- 🧸 Jede **Creative Tonie** als eigenes Gerät mit Media Player, Cover-Bild und Kapitelliste
+- 📻 Jede **Toniebox** als eigenes Gerät — zeigt den aktuell aufgelegten Tonie
+- 🔌 **LED** und **Lautstärkeerkennung** direkt über Switches steuerbar
+- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, letzten Online-Status
+- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum) und Leeren der Kapitelliste
+- 🔽 **Select-Entity** zur direkten Sortierauswahl
+- 🔴 **Binary Sensors** für Transcoding-Status, Live-Modus, Online-Status
+- ⚙️ **10 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
+- 🔐 Keycloak OpenID Connect Authentifizierung — selbe Zugangsdaten wie die Toniebox App
+- 🛠️ Config Flow Setup — **kein YAML erforderlich**
+- 📦 HACS-kompatibel
 
 ---
 
 ## Installation via HACS
 
-Adding HA-Toniebox to your Home Assistant can be done via HACS using this button:
-
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=git4sim&repository=HA-Toniebox&category=integration)
 
 > [!NOTE]
-> If the button above doesn't work, add `https://github.com/git4sim/HA-Toniebox` manually as a Custom Repository of type **Integration** in HACS, then search for **Toniebox** and click Download.
+> Falls der Button nicht funktioniert: `https://github.com/git4sim/HA-Toniebox` in HACS manuell als Custom Repository vom Typ **Integration** hinzufügen, nach **Toniebox** suchen und herunterladen.
 
-After downloading, restart Home Assistant.
+Nach dem Download Home Assistant neu starten.
 
-### Manual Installation
+### Manuelle Installation
 
-Copy the `custom_components/toniebox/` folder from the [latest release](https://github.com/git4sim/HA-Toniebox/releases/latest) into your HA config directory:
+Den Ordner `custom_components/toniebox/` aus dem [neuesten Release](https://github.com/git4sim/HA-Toniebox/releases/latest) in das HA-Konfigurationsverzeichnis kopieren:
 
 ```
 /config/custom_components/toniebox/
 ```
 
-Restart Home Assistant.
+Home Assistant neu starten.
 
 ---
 
-## Configuration
-
-Adding Toniebox to your Home Assistant instance can be done via the UI using this button:
+## Einrichtung
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start?domain=toniebox)
 
 > [!NOTE]
-> If the button above doesn't work, go to **Settings → Devices & Services → Add Integration** and search for **Toniebox**.
+> Falls der Button nicht funktioniert: **Einstellungen → Geräte & Dienste → Integration hinzufügen** und nach **Toniebox** suchen.
 
-Enter your **Toniebox account email and password** (same credentials as the [Toniebox app](https://tonies.com) or [my.tonies.com](https://my.tonies.com)).
+E-Mail-Adresse und Passwort des Toniebox-Kontos eingeben (dieselben Zugangsdaten wie in der [Toniebox App](https://tonies.com) oder auf [my.tonies.com](https://my.tonies.com)).
+
+---
+
+## Gerätehierarchie
+
+Die Integration erstellt eine logische Gerätehierarchie in Home Assistant:
+
+```
+Haushalt (Hub)
+├── Toniebox 1  →  Media Player · LED Switch · Mute Switch · Firmware · Last Seen
+├── Toniebox 2  →  ...
+├── Creative Tonie A  →  Media Player · Kapitel · Dauer · Sort/Clear Buttons · Live/Privat Switch
+└── Creative Tonie B  →  ...
+```
+
+Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox** mit seinen eigenen Entities. Über "Gruppieren nach Haushalt" in der Geräteliste werden alle Geräte übersichtlich dem jeweiligen Haushalt zugeordnet.
 
 ---
 
 ## Entities
 
-For each **household**:
+### Haushalt (Hub-Gerät)
 
-| Entity | Description |
+| Entity | Beschreibung |
 |---|---|
-| `sensor.<household>_creative_tonies` | Number of Creative Tonies in this household |
+| `sensor.<haushalt>_account` | Angemeldetes Konto (E-Mail) |
+| `sensor.<haushalt>_creative_tonies` | Anzahl Creative Tonies |
+| `sensor.<haushalt>_tonieboxen` | Anzahl Tonieboxen |
+| `sensor.<haushalt>_kinder` | Anzahl Kinder-Profile |
+| `sensor.<haushalt>_mitglieder` | Anzahl Haushaltsmitglieder |
+| `sensor.<haushalt>_benachrichtigungen` | Anzahl ungelesener Benachrichtigungen |
+| `sensor.<haushalt>_offene_einladungen` | Ausstehende Einladungen |
+| `button.<haushalt>_alle_aktualisieren` | Alle Daten vom Server neu laden |
 
-For each **Creative Tonie**:
+### Pro Toniebox
 
-| Entity | Description |
+| Entity | Beschreibung |
 |---|---|
-| `media_player.toniebox_<n>` | Main entity — cover art, chapter list, state |
-| `sensor.<n>_chapter_count` | Number of chapters loaded |
-| `sensor.<n>_total_duration` | Total audio duration in minutes |
-| `button.<n>_clear_all_chapters` | Remove all chapters |
-| `button.<n>_sort_by_title` | Sort chapters A→Z |
-| `button.<n>_sort_by_filename` | Sort by filename |
-| `button.<n>_sort_by_date` | Sort by date |
-| `button.<n>_refresh` | Force data refresh |
-| `select.<n>_sort_chapters` | Sort & apply in one step |
+| `media_player.<toniebox>` | Aktuell aufgelegter Tonie, Cover-Bild, Status |
+| `switch.<toniebox>_led` | LED ein/aus |
+| `switch.<toniebox>_lautstaerke_kabel_ignorieren` | Lautstärke-Kabel-Erkennung überspringen |
+| `sensor.<toniebox>_firmware` | Aktuelle Firmware-Version |
+| `sensor.<toniebox>_zuletzt_gesehen` | Zeitstempel der letzten Verbindung |
+| `binary_sensor.<toniebox>_online` | Toniebox erreichbar ja/nein |
+| `binary_sensor.<toniebox>_led_aktiv` | LED-Status (lesend) |
+| `button.<toniebox>_aktualisieren` | Gerät neu laden |
+
+### Pro Creative Tonie
+
+| Entity | Beschreibung |
+|---|---|
+| `media_player.<tonie>` | Hauptentität mit Cover-Bild und Kapitelübersicht |
+| `sensor.<tonie>_kapitel` | Anzahl Kapitel (inkl. Kapitelliste als Attribut) |
+| `sensor.<tonie>_gesamtdauer` | Gesamtspieldauer in Minuten |
+| `switch.<tonie>_privat` | Tonie für Gastmitglieder ausblenden |
+| `switch.<tonie>_live` | Live-Modus aktivieren |
+| `binary_sensor.<tonie>_wird_verarbeitet` | Transcoding läuft gerade |
+| `binary_sensor.<tonie>_live` | Live-Status (lesend) |
+| `binary_sensor.<tonie>_privat` | Privat-Status (lesend) |
+| `button.<tonie>_alle_kapitel_loeschen` | Alle Kapitel entfernen |
+| `button.<tonie>_nach_titel_sortieren` | Kapitel alphabetisch sortieren |
+| `button.<tonie>_nach_dateiname_sortieren` | Kapitel nach Dateiname sortieren |
+| `button.<tonie>_nach_datum_sortieren` | Kapitel nach Datum sortieren |
+| `button.<tonie>_aktualisieren` | Tonie-Daten neu laden |
+| `select.<tonie>_kapitel_sortieren` | Sortierart auswählen und anwenden |
 
 ---
 
 ## Services
 
-### `toniebox.sort_chapters`
-
-Sort the chapters on a Creative Tonie.
+### `toniebox.sort_chapters` — Kapitel sortieren
 
 ```yaml
 service: toniebox.sort_chapters
 data:
-  entity_id: media_player.toniebox_mein_tonie
+  entity_id: media_player.mein_tonie
   sort_by: title   # title | filename | date
 ```
 
-### `toniebox.clear_chapters`
-
-Remove all chapters from a Creative Tonie.
+### `toniebox.clear_chapters` — Alle Kapitel löschen
 
 ```yaml
 service: toniebox.clear_chapters
 data:
-  entity_id: media_player.toniebox_mein_tonie
+  entity_id: media_player.mein_tonie
 ```
 
-### `toniebox.upload_audio`
-
-Upload a local audio file as a new chapter.
+### `toniebox.remove_chapter` — Einzelnes Kapitel löschen
 
 ```yaml
-service: toniebox.upload_audio
+service: toniebox.remove_chapter
 data:
-  entity_id: media_player.toniebox_mein_tonie
-  file_path: /config/tonie_audio/maerchen.mp3
-  title: "Rotkäppchen"
+  entity_id: media_player.mein_tonie
+  chapter_id: "abc123"
 ```
 
-> [!NOTE]
-> The file must be accessible from the Home Assistant host filesystem.
+> Die Kapitel-IDs stehen als Attribut `chapters` am Media Player oder Kapitel-Sensor.
+
+### `toniebox.rename_tonie` — Tonie umbenennen
+
+```yaml
+service: toniebox.rename_tonie
+data:
+  entity_id: media_player.mein_tonie
+  name: "Schlaf Tonie"
+```
+
+### `toniebox.rename_toniebox` — Toniebox umbenennen
+
+```yaml
+service: toniebox.rename_toniebox
+data:
+  entity_id: media_player.meine_toniebox
+  name: "Kinderzimmer"
+```
+
+### `toniebox.redeem_content_token` — Content Token einlösen
+
+```yaml
+service: toniebox.redeem_content_token
+data:
+  entity_id: media_player.mein_tonie
+  token: "TOKEN123"
+```
+
+### `toniebox.apply_tune` — Tune auf Tonie aufspielen
+
+```yaml
+service: toniebox.apply_tune
+data:
+  entity_id: media_player.mein_tonie
+  tune_id: "tune-id-xyz"
+```
+
+### `toniebox.remove_tune` — Tune entfernen (Original wiederherstellen)
+
+```yaml
+service: toniebox.remove_tune
+data:
+  entity_id: media_player.mein_tonie
+```
+
+### `toniebox.redeem_voucher` — Gutscheincode einlösen
+
+```yaml
+service: toniebox.redeem_voucher
+data:
+  code: "GUTSCHEIN123"
+```
+
+### `toniebox.dismiss_all_notifications` — Alle Benachrichtigungen löschen
+
+```yaml
+service: toniebox.dismiss_all_notifications
+```
 
 ---
 
-## Dashboard Example
+## Dashboard-Beispiel
 
 ```yaml
 type: vertical-stack
 cards:
   - type: picture-entity
-    entity: media_player.toniebox_mein_tonie
+    entity: media_player.mein_tonie
     show_name: true
     show_state: true
   - type: entities
     entities:
-      - sensor.toniebox_mein_tonie_chapter_count
-      - sensor.toniebox_mein_tonie_total_duration
-      - select.toniebox_mein_tonie_sort_chapters
+      - sensor.mein_tonie_kapitel
+      - sensor.mein_tonie_gesamtdauer
+      - select.mein_tonie_kapitel_sortieren
   - type: horizontal-stack
     cards:
       - type: button
-        entity: button.toniebox_mein_tonie_clear_all_chapters
-        name: "🗑 Clear"
+        entity: button.mein_tonie_alle_kapitel_loeschen
+        name: "🗑 Leeren"
       - type: button
-        entity: button.toniebox_mein_tonie_sort_by_title
+        entity: button.mein_tonie_nach_titel_sortieren
         name: "🔤 A–Z"
       - type: button
-        entity: button.toniebox_mein_tonie_refresh
-        name: "🔄 Refresh"
+        entity: button.mein_tonie_aktualisieren
+        name: "🔄 Aktualisieren"
 ```
 
 ---
 
 ## Debug Logging
-
-To enable debug logging, add this to your `configuration.yaml`:
 
 ```yaml
 logger:
@@ -185,53 +273,38 @@ logger:
     custom_components.toniebox: debug
 ```
 
-Or enable it via **Settings → Devices & Services → Toniebox → Enable Debug Logging**.
+Oder über **Einstellungen → Geräte & Dienste → Toniebox → Debug-Protokollierung aktivieren**.
 
 ---
 
-## 🤖 About Vibecoding
+## 🤖 Über Vibecoding
 
-This integration was built with **AI pair-programming** ([Claude by Anthropic](https://anthropic.com)) rather than written fully by hand. The architecture, authentication flow, and all platforms were generated iteratively with AI help and debugged against a real Toniebox account.
+Diese Integration wurde mit **KI-Pair-Programming** ([Claude by Anthropic](https://anthropic.com)) entwickelt. Architektur, Authentifizierungsflow und alle Plattformen wurden iterativ mit KI-Unterstützung erstellt und gegen ein echtes Toniebox-Konto getestet.
 
-This means:
-- It works, but **edge cases may exist**
-- PRs, bug reports, and improvements are very welcome!
+Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bug Reports und Verbesserungen sind herzlich willkommen!
 
 ---
 
-## Sources & Attribution
+## Quellen & Attribution
 
-This project builds on reverse-engineering work by the community. All sources are credited for transparency:
-
-| Source | License | What was used |
+| Quelle | Lizenz | Verwendung |
 |---|---|---|
-| [Wilhelmsson177/tonie-api](https://github.com/Wilhelmsson177/tonie-api) | MIT | API endpoint discovery, Python library concept |
-| [maximilianvoss/toniebox-api](https://github.com/maximilianvoss/toniebox-api) | Apache-2.0 | All concrete API URLs from `Constants.java` |
-| [toniebox-reverse-engineering/teddycloud](https://github.com/toniebox-reverse-engineering/teddycloud) | GPL-3.0 | Keycloak SSO flow documentation |
-| [croesnick/toniebox-audio-match #15](https://github.com/croesnick/toniebox-audio-match/issues/15) | — | OpenID Connect endpoint research |
+| [Wilhelmsson177/tonie-api](https://github.com/Wilhelmsson177/tonie-api) | MIT | API-Endpoint-Recherche, Python-Konzept |
+| [maximilianvoss/toniebox-api](https://github.com/maximilianvoss/toniebox-api) | Apache-2.0 | Konkrete API-URLs aus `Constants.java` |
+| [toniebox-reverse-engineering/teddycloud](https://github.com/toniebox-reverse-engineering/teddycloud) | GPL-3.0 | Keycloak SSO Flow Dokumentation |
+| [api.tonie.cloud/v2/doc](https://api.tonie.cloud/v2/doc/) | — | Offizielle REST API Dokumentation |
 
-### API Endpoints (source: maximilianvoss/toniebox-api)
-
-```
-POST https://login.tonies.com/auth/realms/tonies/protocol/openid-connect/token
-GET  https://api.tonie.cloud/v2/me
-GET  https://api.tonie.cloud/v2/households
-GET  https://api.tonie.cloud/v2/households/{id}/creativetonies
-PATCH https://api.tonie.cloud/v2/households/{id}/creativetonies/{id}
-```
-
-> These are **undocumented, unofficial endpoints** belonging to Boxine GmbH. This project does not circumvent any DRM, copy protection, or access controls. It uses the same API the official app uses.
+> Die verwendeten Endpunkte sind Teil der offiziellen Tonie Cloud API. Es werden keine DRM-Schutzmaßnahmen oder Zugriffskontrollen umgangen. Die Integration nutzt dieselbe API wie die offizielle App.
 
 ---
 
 ## Legal
 
-- Released under the **[MIT License](LICENSE)**
-- **Not affiliated with Boxine GmbH** in any way
-- Toniebox® and Tonies® are registered trademarks of Boxine GmbH
-- The Tonie Cloud API is undocumented — no guarantee of continued functionality
-- Use in compliance with Boxine's [Terms of Service](https://tonies.com/terms)
+- Veröffentlicht unter der **[MIT-Lizenz](LICENSE)**
+- **Nicht verbunden mit Boxine GmbH**
+- Toniebox® und Tonies® sind eingetragene Marken der Boxine GmbH
+- Nutzung gemäß den [Nutzungsbedingungen](https://tonies.com/terms) von Boxine
 
 ---
 
-<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Report a Bug</a></p>
+<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Bug melden</a></p>
