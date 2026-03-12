@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Unofficial Home Assistant Integration for Toniebox / Tonie Cloud</strong><br/>
-  Vollständige Integration deiner Tonieboxen, Creative Tonies, Content Tonies und Content Discs in Home Assistant.
+  Vollständige Integration deiner Tonieboxen und Creative Tonies in Home Assistant.
 </p>
 
 <p align="center">
@@ -35,8 +35,6 @@
 ## Features
 
 - 🧸 Jede **Creative Tonie** als eigenes Gerät mit Media Player, Cover-Bild und Kapitelliste
-- 🎭 Jede **Content Tonie** (gekaufte Figur) als eigenes Gerät mit Status, aktiver Box, Serien-ID
-- 💿 Jede **Content Disc** als eigenes Gerät mit Status und Haushalt-Sperr-Funktion
 - 📻 Jede **Toniebox** als eigenes Gerät — zeigt die aktuell aufgelegte Figur mit Name und Cover
 - 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, aktive Box
 - 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Leeren und Aktualisieren
@@ -92,11 +90,7 @@ Haushalt (Hub)
 ├── Toniebox 1       →  Media Player · Switches · Sensoren · Buttons · Select
 ├── Toniebox 2       →  ...
 ├── Creative Tonie A →  Media Player · Kapitel · Dauer · Sort/Clear Buttons · Live/Privat Switch
-├── Creative Tonie B →  ...
-├── Content Tonie 1  →  Sensoren · Binary Sensors · Lock Switch
-├── Content Tonie 2  →  ...
-├── Content Disc 1   →  Sensoren · Binary Sensors · Lock Switch
-└── Content Disc 2   →  ...
+└── Creative Tonie B →  ...
 ```
 
 Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox** mit seinen eigenen Entities.
@@ -111,8 +105,6 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 |---|---|
 | `sensor.<haushalt>_account` | Angemeldetes Konto (E-Mail) |
 | `sensor.<haushalt>_creative_tonies` | Anzahl Creative Tonies |
-| `sensor.<haushalt>_content_tonies` | Anzahl Content Tonies (gekaufte Figuren) |
-| `sensor.<haushalt>_content_discs` | Anzahl Content Discs |
 | `sensor.<haushalt>_tonieboxen` | Anzahl Tonieboxen |
 | `sensor.<haushalt>_kinder` | Anzahl Kinder-Profile |
 | `sensor.<haushalt>_mitglieder` | Anzahl Haushaltsmitglieder |
@@ -170,31 +162,6 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `button.<tonie>_nach_datum_sortieren` | Kapitel nach Datum sortieren |
 | `button.<tonie>_aktualisieren` | Tonie-Daten neu laden |
 | `select.<tonie>_kapitel_sortieren` | Sortierart auswählen und anwenden |
-
-### Pro Content Tonie (gekaufte Figur)
-
-| Entity | Beschreibung |
-|---|---|
-| `sensor.<content_tonie>_aktuelle_box` | Name der Toniebox, auf der die Figur liegt |
-| `sensor.<content_tonie>_kapitel` | Anzahl Kapitel |
-| `sensor.<content_tonie>_gesamtdauer` | Gesamtspieldauer in Minuten |
-| `sensor.<content_tonie>_serien_id` | Serien- / Sales-ID der Figur |
-| `binary_sensor.<content_tonie>_gerade_aktiv` | Liegt gerade auf einer Toniebox |
-| `binary_sensor.<content_tonie>_im_haushalt_gesperrt` | An diesen Haushalt gebunden |
-| `binary_sensor.<content_tonie>_transkodierung_aktiv` | Transkodierung läuft |
-| `switch.<content_tonie>_im_haushalt_sperren` | Figur an Haushalt binden / freigeben |
-| `button.<content_tonie>_tune_entfernen` | Aktiven Tune entfernen |
-| `select.<content_tonie>_sprache` | Sprache (mehrsprachige Figuren) |
-
-### Pro Content Disc
-
-| Entity | Beschreibung |
-|---|---|
-| `sensor.<disc>_aktuelle_box` | Name der Toniebox, auf der die Disc liegt |
-| `sensor.<disc>_serien_id` | Serien- / Sales-ID der Disc |
-| `binary_sensor.<disc>_gerade_aktiv` | Liegt gerade auf einer Toniebox |
-| `binary_sensor.<disc>_im_haushalt_gesperrt` | An diesen Haushalt gebunden |
-| `switch.<disc>_im_haushalt_sperren` | Disc an Haushalt binden / freigeben |
 
 ---
 
@@ -334,6 +301,33 @@ automation:
         entity_id: light.kinderzimmer
 ```
 
+### Lautstärke tagsüber 100 %, nachts auf 50 % reduzieren
+
+```yaml
+automation:
+  - alias: "Toniebox Lautstärke Tag"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.kinderzimmer_max_lautstaerke
+        data:
+          value: 100
+
+  - alias: "Toniebox Lautstärke Nacht"
+    trigger:
+      - platform: time
+        at: "20:00:00"
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.kinderzimmer_max_lautstaerke
+        data:
+          value: 50
+```
+
 ### Benachrichtigung wenn Toniebox offline geht
 
 ```yaml
@@ -394,7 +388,7 @@ logger:
 Oder über **Einstellungen → Geräte & Dienste → Toniebox → Debug-Protokollierung aktivieren**.
 
 > [!TIP]
-> Debug-Logs sind besonders hilfreich wenn Content Tonies oder Content Discs nicht angezeigt werden — sie zeigen die exakten API-Antwortfelder und helfen beim Diagnosieren von Parsing-Problemen.
+> Debug-Logs sind besonders hilfreich wenn Creative Tonies oder Tonieboxen nicht korrekt angezeigt werden — sie zeigen die exakten API-Antwortfelder und helfen beim Diagnosieren von Parsing-Problemen.
 
 ---
 
