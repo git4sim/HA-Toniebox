@@ -438,13 +438,27 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 "memberships": [],
             }
 
-            # Creative Tonies
+            # All Tonies — GET /households/{hh}/creativetonies returns ALL tonie types.
+            # The API has no separate list endpoint for content tonies or discs.
+            # Items are split into buckets by the "type" field:
+            #   "creative" (or absent)  → creativetonies
+            #   "content"               → contenttonies
+            #   "disc"                  → discs
             try:
-                tonies = await self.client.get_creative_tonies(hh_id)
-                for tonie in tonies:
+                all_tonies = await self.client.get_creative_tonies(hh_id)
+                _LOGGER.debug(
+                    "get_creative_tonies(%s): %d items total", hh_id, len(all_tonies)
+                )
+                for tonie in all_tonies:
+                    if not isinstance(tonie, dict):
+                        continue
                     t_id = tonie.get("id", "")
                     if not t_id:
                         continue
+
+                    tonie_type = (tonie.get("type") or "creative").lower()
+                    _LOGGER.debug("tonie %s type=%s name=%s", t_id, tonie_type, tonie.get("name"))
+
                     chapters = [
                         {
                             "id": ch.get("id", ""),
@@ -453,125 +467,68 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             "transcoding": ch.get("transcoding", False),
                         }
                         for ch in tonie.get("chapters", [])
-                    ]
-                    hh_data["creativetonies"][t_id] = {
-                        "id": t_id,
-                        "name": tonie.get("name", t_id),
-                        "image_url": tonie.get("imageUrl") or tonie.get("image_url"),
-                        "chapters": chapters,
-                        "chapter_count": len(chapters),
-                        "total_seconds": sum(c["seconds"] for c in chapters),
-                        "household_id": hh_id,
-                        "live": tonie.get("live", False),
-                        "private": tonie.get("private", False),
-                        "transcoding": tonie.get("transcoding", False),
-                    }
-            except Exception as e:
-                _LOGGER.warning("Could not fetch creativetonies for %s: %s", hh_id, e)
-
-            # Content Tonies (purchased/assigned figurines)
-            try:
-                content_tonies = await self.client.get_content_tonies(hh_id)
-                _LOGGER.info(
-                    "contenttonies for %s: got %d items", hh_id, len(content_tonies)
-                )
-                if content_tonies and isinstance(content_tonies[0], dict):
-                    _LOGGER.debug(
-                        "contenttonies first item fields: %s", list(content_tonies[0].keys())
-                    )
-                for ct in content_tonies:
-                    if not isinstance(ct, dict):
-                        _LOGGER.warning("Skipping non-dict content tonie: %s", ct)
-                        continue
-                    # Try multiple possible ID field names
-                    ct_id = (
-                        ct.get("id")
-                        or ct.get("uid")
-                        or ct.get("figureId")
-                        or ct.get("figurineId")
-                        or ct.get("entityId")
-                        or ct.get("tonieId")
-                        or ct.get("nfcTagId")
-                        or ""
-                    )
-                    if not ct_id:
-                        _LOGGER.warning(
-                            "Skipping content tonie with no ID — available fields: %s (values: %s)",
-                            list(ct.keys()),
-                            {k: v for k, v in ct.items() if isinstance(v, (str, int, bool)) and k not in ("imageUrl", "image_url")},
-                        )
-                        continue
-                    # Chapters normalisieren
-                    raw_chapters = ct.get("chapters", [])
-                    chapters = [
-                        {
-                            "id": ch.get("id", ""),
-                            "title": ch.get("title", ""),
-                            "seconds": ch.get("seconds", 0),
-                            "transcoding": ch.get("transcoding", False),
-                        }
-                        for ch in raw_chapters
                         if isinstance(ch, dict)
                     ]
-                    hh_data["contenttonies"][ct_id] = {
-                        "id": ct_id,
-                        "name": ct.get("name", ct_id),
-                        "image_url": ct.get("imageUrl") or ct.get("image_url") or ct.get("image"),
-                        "household_id": hh_id,
-                        # Sales-ID und Serien-Info
-                        "sales_id": ct.get("salesId") or ct.get("sales_id"),
-                        "item_id": ct.get("itemId") or ct.get("item_id"),
-                        # Haushalt-Lock
-                        "locked": ct.get("locked", ct.get("lock", False)),
-                        # Multi-language Content Tonies
-                        "language": ct.get("language"),
-                        # Kapitel / Inhalt
-                        "chapters": chapters,
-                        "chapter_count": len(chapters),
-                        "total_seconds": sum(c["seconds"] for c in chapters),
-                        # Transkodierungs-Status
-                        "transcoding": ct.get("transcoding", False),
-                        "transcoding_errors": ct.get("transcodingErrors", []),
-                        # Auf welcher Box liegt die Figur gerade?
-                        # API liefert ggf. tonieboxId im Content Tonie Objekt
-                        "toniebox_id": ct.get("tonieboxId") or ct.get("toniebox_id"),
-                        # Tune aktiv?
-                        "tune_id": ct.get("tuneId") or ct.get("tune_id"),
-                    }
-            except Exception as e:
-                _LOGGER.warning("Could not fetch contenttonies for %s: %s", hh_id, e)
-
-            # Content Discs
-            try:
-                discs = await self.client.get_discs(hh_id)
-                _LOGGER.info("discs for %s: got %d items", hh_id, len(discs))
-                for disc in discs:
-                    if not isinstance(disc, dict):
-                        continue
-                    disc_id = (
-                        disc.get("id")
-                        or disc.get("uid")
-                        or disc.get("discId")
-                        or ""
+                    image_url = (
+                        tonie.get("imageUrl")
+                        or tonie.get("image_url")
+                        or tonie.get("image")
                     )
-                    if not disc_id:
-                        _LOGGER.warning(
-                            "Skipping disc with no ID — available fields: %s", list(disc.keys())
-                        )
-                        continue
-                    hh_data["discs"][disc_id] = {
-                        "id": disc_id,
-                        "name": disc.get("name", disc_id),
-                        "image_url": disc.get("imageUrl") or disc.get("image_url") or disc.get("image"),
-                        "household_id": hh_id,
-                        "sales_id": disc.get("salesId") or disc.get("sales_id"),
-                        "item_id": disc.get("itemId") or disc.get("item_id"),
-                        "locked": disc.get("locked", disc.get("lock", False)),
-                        "language": disc.get("language"),
-                        "toniebox_id": disc.get("tonieboxId") or disc.get("toniebox_id"),
-                    }
+
+                    if tonie_type == "disc":
+                        hh_data["discs"][t_id] = {
+                            "id": t_id,
+                            "name": tonie.get("name", t_id),
+                            "image_url": image_url,
+                            "household_id": hh_id,
+                            "sales_id": tonie.get("salesId") or tonie.get("sales_id"),
+                            "item_id": tonie.get("itemId") or tonie.get("item_id"),
+                            "locked": tonie.get("locked", tonie.get("lock", False)),
+                            "language": tonie.get("language"),
+                            "toniebox_id": tonie.get("tonieboxId") or tonie.get("toniebox_id"),
+                        }
+                    elif tonie_type == "content":
+                        hh_data["contenttonies"][t_id] = {
+                            "id": t_id,
+                            "name": tonie.get("name", t_id),
+                            "image_url": image_url,
+                            "household_id": hh_id,
+                            "sales_id": tonie.get("salesId") or tonie.get("sales_id"),
+                            "item_id": tonie.get("itemId") or tonie.get("item_id"),
+                            "locked": tonie.get("locked", tonie.get("lock", False)),
+                            "language": tonie.get("language"),
+                            "chapters": chapters,
+                            "chapter_count": len(chapters),
+                            "total_seconds": sum(c["seconds"] for c in chapters),
+                            "transcoding": tonie.get("transcoding", False),
+                            "transcoding_errors": tonie.get("transcodingErrors", []),
+                            "toniebox_id": tonie.get("tonieboxId") or tonie.get("toniebox_id"),
+                            "tune_id": tonie.get("tuneId") or tonie.get("tune_id"),
+                        }
+                    else:
+                        # "creative" or unknown type
+                        hh_data["creativetonies"][t_id] = {
+                            "id": t_id,
+                            "name": tonie.get("name", t_id),
+                            "image_url": image_url,
+                            "chapters": chapters,
+                            "chapter_count": len(chapters),
+                            "total_seconds": sum(c["seconds"] for c in chapters),
+                            "household_id": hh_id,
+                            "live": tonie.get("live", False),
+                            "private": tonie.get("private", False),
+                            "transcoding": tonie.get("transcoding", False),
+                        }
+
+                _LOGGER.info(
+                    "household %s: %d creative, %d content, %d discs",
+                    hh_id,
+                    len(hh_data["creativetonies"]),
+                    len(hh_data["contenttonies"]),
+                    len(hh_data["discs"]),
+                )
             except Exception as e:
-                _LOGGER.debug("Could not fetch discs for %s: %s", hh_id, e)
+                _LOGGER.warning("Could not fetch tonies for %s: %s", hh_id, e)
 
             # Tonieboxes
             try:
