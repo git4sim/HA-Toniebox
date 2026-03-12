@@ -1,7 +1,7 @@
 {
   "domain": "toniebox",
   "name": "Toniebox",
-  "version": "3.2.2",
+  "version": "3.2.3",
   "documentation": "https://github.com/git4sim/HA-Toniebox",
   "issue_tracker": "https://github.com/git4sim/HA-Toniebox/issues",
   "requirements": [],

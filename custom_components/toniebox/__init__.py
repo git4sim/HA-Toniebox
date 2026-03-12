@@ -541,18 +541,6 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     placement = box.get("placement") or {}
                     placed_tonie = placement.get("tonie") or {}
 
-                    # Enrich placed tonie with name/image from known creative/content tonies
-                    if isinstance(placed_tonie, dict) and placed_tonie.get("id"):
-                        placed_id = placed_tonie["id"]
-                        known = (
-                            hh_data["creativetonies"].get(placed_id)
-                            or hh_data["contenttonies"].get(placed_id)
-                            or hh_data["discs"].get(placed_id)
-                        )
-                        if known:
-                            placed_tonie.setdefault("name", known.get("name"))
-                            placed_tonie.setdefault("imageUrl", known.get("image_url"))
-
                     # Playback info — only fetch when a tonie is actively placed
                     playback_info: dict = {}
                     if placed_tonie and placed_tonie.get("id"):
@@ -564,6 +552,80 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             _LOGGER.debug(
                                 "Playback info not available for box %s: %s", b_id, e
                             )
+
+                    # If placed tonie is not a known creative tonie, add it to
+                    # contenttonies or discs (derived from placement + playback_info)
+                    if isinstance(placed_tonie, dict) and placed_tonie.get("id"):
+                        placed_id = placed_tonie["id"]
+                        already_known = (
+                            placed_id in hh_data["creativetonies"]
+                            or placed_id in hh_data["contenttonies"]
+                            or placed_id in hh_data["discs"]
+                        )
+                        if not already_known:
+                            pi_type = (
+                                playback_info.get("tonieType")
+                                or playback_info.get("type")
+                                or placed_tonie.get("type")
+                                or placed_tonie.get("tonieType")
+                                or "content"
+                            ).lower()
+                            image_url = (
+                                playback_info.get("imageUrl")
+                                or placed_tonie.get("imageUrl")
+                                or placed_tonie.get("image_url")
+                            )
+                            name = (
+                                placed_tonie.get("name")
+                                or playback_info.get("name")
+                                or playback_info.get("title")
+                                or placed_id
+                            )
+                            _LOGGER.debug(
+                                "Adding %s tonie %s (%s) from placement on box %s",
+                                pi_type, placed_id, name, b_id,
+                            )
+                            entry = {
+                                "id": placed_id,
+                                "name": name,
+                                "image_url": image_url,
+                                "household_id": hh_id,
+                                "toniebox_id": b_id,
+                            }
+                            if pi_type == "disc":
+                                hh_data["discs"][placed_id] = {
+                                    **entry,
+                                    "locked": False,
+                                    "language": None,
+                                    "sales_id": None,
+                                    "item_id": None,
+                                }
+                            else:
+                                hh_data["contenttonies"][placed_id] = {
+                                    **entry,
+                                    "chapters": [],
+                                    "chapter_count": 0,
+                                    "total_seconds": 0,
+                                    "locked": False,
+                                    "language": None,
+                                    "transcoding": False,
+                                    "transcoding_errors": [],
+                                    "tune_id": None,
+                                    "sales_id": None,
+                                    "item_id": None,
+                                }
+
+                    # Enrich placed tonie with name/image from known tonies
+                    if isinstance(placed_tonie, dict) and placed_tonie.get("id"):
+                        placed_id = placed_tonie["id"]
+                        known = (
+                            hh_data["creativetonies"].get(placed_id)
+                            or hh_data["contenttonies"].get(placed_id)
+                            or hh_data["discs"].get(placed_id)
+                        )
+                        if known:
+                            placed_tonie.setdefault("name", known.get("name"))
+                            placed_tonie.setdefault("imageUrl", known.get("image_url"))
 
                     hh_data["tonieboxes"][b_id] = {
                         # Identity
