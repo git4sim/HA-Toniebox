@@ -134,5 +134,43 @@
         "invitation_id": { "name": "ID d'invitation", "description": "L'ID de l'invitation." }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "lightring_brightness": {"name": "Luminosité de l'anneau"},
+      "bedtime_lightring_brightness": {"name": "Luminosité anneau (heure du coucher)"},
+      "bedtime_max_volume": {"name": "Volume max. boîte (heure du coucher)"},
+      "bedtime_max_headphone_volume": {"name": "Volume max. casque (heure du coucher)"},
+      "max_volume": {"name": "Volume max. boîte"},
+      "max_headphone_volume": {"name": "Volume max. casque"}
+    },
+    "select": {
+      "led_level": {
+        "name": "Luminosité LED",
+        "state": {"on": "Allumé", "off": "Éteint", "dimmed": "Tamisé"}
+      },
+      "skipping_direction": {
+        "name": "Oreille pour passer",
+        "state": {"right": "Oreille droite", "left": "Oreille gauche"}
+      },
+      "tap_direction": {
+        "name": "Direction du tapotement",
+        "state": {"left": "Gauche", "right": "Droite"}
+      },
+      "age_mode": {"name": "Mode d'âge"},
+      "language": {
+        "name": "Langue de la boîte",
+        "state": {"de": "Allemand", "en": "Anglais", "en-us": "Anglais (É.-U.)", "fr": "Français"}
+      },
+      "sort_select": {"name": "Trier les chapitres"}
+    },
+    "switch": {
+      "skipping": {"name": "Passer avec l'oreille"},
+      "scrubbing": {"name": "Incliner pour rembobiner"},
+      "offline_mode": {"name": "Mode hors ligne"},
+      "accelerometer": {"name": "Incliner et tapoter"},
+      "private": {"name": "Jouer uniquement dans ce foyer"},
+      "live": {"name": "Mode en direct"}
+    }
   }
 }

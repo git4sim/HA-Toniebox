@@ -134,5 +134,43 @@
         "invitation_id": { "name": "ID de invitación", "description": "El ID de la invitación." }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "lightring_brightness": {"name": "Brillo del anillo"},
+      "bedtime_lightring_brightness": {"name": "Brillo del anillo (hora de dormir)"},
+      "bedtime_max_volume": {"name": "Volumen máx. caja (hora de dormir)"},
+      "bedtime_max_headphone_volume": {"name": "Volumen máx. auriculares (hora de dormir)"},
+      "max_volume": {"name": "Volumen máx. caja"},
+      "max_headphone_volume": {"name": "Volumen máx. auriculares"}
+    },
+    "select": {
+      "led_level": {
+        "name": "Brillo LED",
+        "state": {"on": "Encendido", "off": "Apagado", "dimmed": "Atenuado"}
+      },
+      "skipping_direction": {
+        "name": "Oreja para saltar",
+        "state": {"right": "Oreja derecha", "left": "Oreja izquierda"}
+      },
+      "tap_direction": {
+        "name": "Dirección del toque",
+        "state": {"left": "Izquierda", "right": "Derecha"}
+      },
+      "age_mode": {"name": "Modo de edad"},
+      "language": {
+        "name": "Idioma de la caja",
+        "state": {"de": "Alemán", "en": "Inglés", "en-us": "Inglés (EE. UU.)", "fr": "Francés"}
+      },
+      "sort_select": {"name": "Ordenar capítulos"}
+    },
+    "switch": {
+      "skipping": {"name": "Saltar con la oreja"},
+      "scrubbing": {"name": "Inclinar para rebobinar"},
+      "offline_mode": {"name": "Modo sin conexión"},
+      "accelerometer": {"name": "Inclinar y golpear"},
+      "private": {"name": "Reproducir solo en este hogar"},
+      "live": {"name": "Modo en vivo"}
+    }
   }
 }

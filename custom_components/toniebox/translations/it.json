@@ -134,5 +134,43 @@
         "invitation_id": { "name": "ID invito", "description": "L'ID dell'invito." }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "lightring_brightness": {"name": "Luminosità anello"},
+      "bedtime_lightring_brightness": {"name": "Luminosità anello (ora di dormire)"},
+      "bedtime_max_volume": {"name": "Volume max. cassa (ora di dormire)"},
+      "bedtime_max_headphone_volume": {"name": "Volume max. cuffie (ora di dormire)"},
+      "max_volume": {"name": "Volume max. cassa"},
+      "max_headphone_volume": {"name": "Volume max. cuffie"}
+    },
+    "select": {
+      "led_level": {
+        "name": "Luminosità LED",
+        "state": {"on": "Acceso", "off": "Spento", "dimmed": "Attenuato"}
+      },
+      "skipping_direction": {
+        "name": "Orecchio per saltare",
+        "state": {"right": "Orecchio destro", "left": "Orecchio sinistro"}
+      },
+      "tap_direction": {
+        "name": "Direzione del tocco",
+        "state": {"left": "Sinistra", "right": "Destra"}
+      },
+      "age_mode": {"name": "Modalità età"},
+      "language": {
+        "name": "Lingua della cassa",
+        "state": {"de": "Tedesco", "en": "Inglese", "en-us": "Inglese (USA)", "fr": "Francese"}
+      },
+      "sort_select": {"name": "Ordina capitoli"}
+    },
+    "switch": {
+      "skipping": {"name": "Salta con l'orecchio"},
+      "scrubbing": {"name": "Inclina per tornare indietro"},
+      "offline_mode": {"name": "Modalità offline"},
+      "accelerometer": {"name": "Inclina e tocca"},
+      "private": {"name": "Riproduci solo in questa famiglia"},
+      "live": {"name": "Modalità live"}
+    }
   }
 }

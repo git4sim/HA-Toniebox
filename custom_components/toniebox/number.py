@@ -37,7 +37,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     # ── TNG-generation (lightring, bedtime) ───────────────────────────────────
     _TbNumberDesc(
         key="lightring_brightness",
-        name="Lautstärke Leuchtring",
+        name="Helligkeit Ring",
         icon="mdi:brightness-5",
         native_min_value=0, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -48,7 +48,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_lightring_brightness",
-        name="Leuchtring-Helligkeit (Schlafenszeit)",
+        name="Schlafenszeit Helligkeit Ring",
         icon="mdi:brightness-3",
         native_min_value=0, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -59,7 +59,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_max_volume",
-        name="Max. Lautstärke (Schlafenszeit)",
+        name="Schlafenszeit Max. Lautstärke Box",
         icon="mdi:volume-low",
         native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -70,7 +70,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_max_headphone_volume",
-        name="Max. Kopfhörer-Lautstärke (Schlafenszeit)",
+        name="Schlafenszeit Max. Kopfhörerlautstärke",
         icon="mdi:headphones",
         native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -82,7 +82,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     # ── Classic / all boxes (volume enum: 25/50/75/100) ───────────────────────
     _TbNumberDesc(
         key="max_volume",
-        name="Max. Lautstärke (Lautsprecher)",
+        name="Max. Lautstärke Box",
         icon="mdi:volume-high",
         native_min_value=25, native_max_value=100, native_step=25,
         native_unit_of_measurement="%",
@@ -92,7 +92,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="max_headphone_volume",
-        name="Max. Kopfhörer-Lautstärke",
+        name="Max. Kopfhörerlautstärke",
         icon="mdi:headphones",
         native_min_value=25, native_max_value=100, native_step=25,
         native_unit_of_measurement="%",
@@ -140,6 +140,7 @@ class TonieboxNumber(CoordinatorEntity, NumberEntity):
         self._desc = desc
         self.entity_description = desc
         self._attr_unique_id = f"tb_{tb_id}_{desc.key}"
+        self._attr_translation_key = desc.key
         self._optimistic_value: float | None = None
 
     @property

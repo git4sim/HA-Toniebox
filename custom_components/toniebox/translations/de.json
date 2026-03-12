@@ -134,5 +134,43 @@
         "invitation_id": { "name": "Einladungs-ID", "description": "Die ID der Einladung." }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "lightring_brightness": {"name": "Helligkeit Ring"},
+      "bedtime_lightring_brightness": {"name": "Schlafenszeit Helligkeit Ring"},
+      "bedtime_max_volume": {"name": "Schlafenszeit Max. Lautstärke Box"},
+      "bedtime_max_headphone_volume": {"name": "Schlafenszeit Max. Kopfhörerlautstärke"},
+      "max_volume": {"name": "Max. Lautstärke Box"},
+      "max_headphone_volume": {"name": "Max. Kopfhörerlautstärke"}
+    },
+    "select": {
+      "led_level": {
+        "name": "LED-Helligkeit",
+        "state": {"on": "An", "off": "Aus", "dimmed": "Gedimmt"}
+      },
+      "skipping_direction": {
+        "name": "Klapps-Richtung",
+        "state": {"right": "Rechte Seite klapsen", "left": "Linke Seite klapsen"}
+      },
+      "tap_direction": {
+        "name": "Klopf-Richtung",
+        "state": {"left": "Links", "right": "Rechts"}
+      },
+      "age_mode": {"name": "Altersmodus"},
+      "language": {
+        "name": "Boxsprache",
+        "state": {"de": "Deutsch", "en": "Englisch", "en-us": "Englisch (US)", "fr": "Französisch"}
+      },
+      "sort_select": {"name": "Kapitel sortieren"}
+    },
+    "switch": {
+      "skipping": {"name": "Klappsen zum überspringen"},
+      "scrubbing": {"name": "Neigen zum Zurück- und Vorspulen"},
+      "offline_mode": {"name": "Offline-Modus"},
+      "accelerometer": {"name": "Kippen & Klopfen"},
+      "private": {"name": "Nur in diesem Haushalt abspielen"},
+      "live": {"name": "Live-Funktion"}
+    }
   }
 }

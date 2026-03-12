@@ -99,7 +99,7 @@ class TonieboxSkippingSwitch(_TbSwitch):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_skipping"
-        self._attr_name = "Kapitel überspringen"
+        self._attr_translation_key = "skipping"
 
     @property
     def is_on(self) -> bool:
@@ -125,7 +125,7 @@ class TonieboxScrubbingSwitch(_TbSwitch):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_scrubbing"
-        self._attr_name = "Vorspulen / Zurückspulen"
+        self._attr_translation_key = "scrubbing"
 
     @property
     def is_on(self) -> bool:
@@ -150,7 +150,7 @@ class TonieboxOfflineModeSwitch(_TbSwitch):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_offline_mode"
-        self._attr_name = "Offline-Modus"
+        self._attr_translation_key = "offline_mode"
 
     @property
     def is_on(self) -> bool:
@@ -177,7 +177,7 @@ class TonieboxAccelerometerSwitch(_TbSwitch):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_accelerometer"
-        self._attr_name = "Kippen & Klopfen"
+        self._attr_translation_key = "accelerometer"
 
     @property
     def is_on(self) -> bool:
@@ -234,7 +234,7 @@ class ToniePrivateSwitch(_TonieSwitch):
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_private"
-        self._attr_name = "Privat"
+        self._attr_translation_key = "private"
 
     @property
     def is_on(self) -> bool:
@@ -259,7 +259,7 @@ class TonieLiveSwitch(_TonieSwitch):
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_live"
-        self._attr_name = "Live"
+        self._attr_translation_key = "live"
 
     @property
     def is_on(self) -> bool:

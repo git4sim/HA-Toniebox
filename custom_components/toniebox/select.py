@@ -45,7 +45,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # skippingDirection — applies to boxes WITH tngSettings
     _TbSelectDesc(
         key="skipping_direction",
-        name="Kapitelsprung-Richtung",
+        name="Klapps-Richtung",
         icon="mdi:gesture-tap",
         options=["right", "left"],
         data_key="skipping_direction",
@@ -67,7 +67,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # ageMode — only on boxes with "ageMode" feature
     _TbSelectDesc(
         key="age_mode",
-        name="Altersgruppe",
+        name="Altersmodus",
         icon="mdi:baby-face-outline",
         options=["1+", "3+"],
         data_key="age_mode",
@@ -78,7 +78,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # language — only on boxes with "language" feature
     _TbSelectDesc(
         key="language",
-        name="Sprache",
+        name="Boxsprache",
         icon="mdi:translate",
         options=["de", "en", "en-us", "fr"],
         data_key="language",
@@ -131,7 +131,7 @@ class TonieboxSelect(CoordinatorEntity, SelectEntity):
         self._tb_id = tb_id
         self._desc = desc
         self._attr_unique_id = f"tb_{tb_id}_{desc.key}"
-        self._attr_name = desc.name
+        self._attr_translation_key = desc.key
         self._attr_icon = desc.icon
         self._attr_options = desc.options
         self._optimistic: str | None = None
@@ -177,7 +177,7 @@ class TonieSortSelect(CoordinatorEntity, SelectEntity):
     _attr_has_entity_name = True
     _attr_options = SORT_OPTIONS
     _attr_icon = "mdi:sort"
-    _attr_name = "Kapitel sortieren"
+    _attr_translation_key = "sort_select"
 
     def __init__(self, coordinator, hh_id: str, t_id: str) -> None:
         super().__init__(coordinator)

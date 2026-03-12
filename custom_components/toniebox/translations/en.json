@@ -134,5 +134,43 @@
         "invitation_id": { "name": "Invitation ID", "description": "The ID of the invitation." }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "lightring_brightness": {"name": "Ring Brightness"},
+      "bedtime_lightring_brightness": {"name": "Bedtime Ring Brightness"},
+      "bedtime_max_volume": {"name": "Bedtime Max. Box Volume"},
+      "bedtime_max_headphone_volume": {"name": "Bedtime Max. Headphone Volume"},
+      "max_volume": {"name": "Max. Box Volume"},
+      "max_headphone_volume": {"name": "Max. Headphone Volume"}
+    },
+    "select": {
+      "led_level": {
+        "name": "LED Brightness",
+        "state": {"on": "On", "off": "Off", "dimmed": "Dimmed"}
+      },
+      "skipping_direction": {
+        "name": "Ear Direction for Skipping",
+        "state": {"right": "Right Ear", "left": "Left Ear"}
+      },
+      "tap_direction": {
+        "name": "Tap Direction",
+        "state": {"left": "Left", "right": "Right"}
+      },
+      "age_mode": {"name": "Age Mode"},
+      "language": {
+        "name": "Box Language",
+        "state": {"de": "German", "en": "English", "en-us": "English (US)", "fr": "French"}
+      },
+      "sort_select": {"name": "Sort Chapters"}
+    },
+    "switch": {
+      "skipping": {"name": "Skip with Ear Press"},
+      "scrubbing": {"name": "Tilt to Scrub"},
+      "offline_mode": {"name": "Offline Mode"},
+      "accelerometer": {"name": "Tilt & Tap"},
+      "private": {"name": "Play in This Household Only"},
+      "live": {"name": "Live Mode"}
+    }
   }
 }
