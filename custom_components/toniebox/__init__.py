@@ -432,6 +432,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 "name": hh.get("name", hh_id),
                 "creativetonies": {},
                 "contenttonies": {},
+                "discs": {},
                 "tonieboxes": {},
                 "children": [],
                 "memberships": [],
@@ -474,7 +475,14 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.info(
                     "contenttonies for %s: got %d items", hh_id, len(content_tonies)
                 )
+                if content_tonies and isinstance(content_tonies[0], dict):
+                    _LOGGER.debug(
+                        "contenttonies first item fields: %s", list(content_tonies[0].keys())
+                    )
                 for ct in content_tonies:
+                    if not isinstance(ct, dict):
+                        _LOGGER.warning("Skipping non-dict content tonie: %s", ct)
+                        continue
                     # Try multiple possible ID field names
                     ct_id = (
                         ct.get("id")
@@ -482,12 +490,15 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         or ct.get("figureId")
                         or ct.get("figurineId")
                         or ct.get("entityId")
+                        or ct.get("tonieId")
+                        or ct.get("nfcTagId")
                         or ""
                     )
                     if not ct_id:
                         _LOGGER.warning(
-                            "Skipping content tonie with no ID — available fields: %s",
+                            "Skipping content tonie with no ID — available fields: %s (values: %s)",
                             list(ct.keys()),
+                            {k: v for k, v in ct.items() if isinstance(v, (str, int, bool)) and k not in ("imageUrl", "image_url")},
                         )
                         continue
                     # Chapters normalisieren
@@ -530,6 +541,38 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Could not fetch contenttonies for %s: %s", hh_id, e)
 
+            # Content Discs
+            try:
+                discs = await self.client.get_discs(hh_id)
+                _LOGGER.info("discs for %s: got %d items", hh_id, len(discs))
+                for disc in discs:
+                    if not isinstance(disc, dict):
+                        continue
+                    disc_id = (
+                        disc.get("id")
+                        or disc.get("uid")
+                        or disc.get("discId")
+                        or ""
+                    )
+                    if not disc_id:
+                        _LOGGER.warning(
+                            "Skipping disc with no ID — available fields: %s", list(disc.keys())
+                        )
+                        continue
+                    hh_data["discs"][disc_id] = {
+                        "id": disc_id,
+                        "name": disc.get("name", disc_id),
+                        "image_url": disc.get("imageUrl") or disc.get("image_url"),
+                        "household_id": hh_id,
+                        "sales_id": disc.get("salesId") or disc.get("sales_id"),
+                        "item_id": disc.get("itemId") or disc.get("item_id"),
+                        "locked": disc.get("locked", disc.get("lock", False)),
+                        "language": disc.get("language"),
+                        "toniebox_id": disc.get("tonieboxId") or disc.get("toniebox_id"),
+                    }
+            except Exception as e:
+                _LOGGER.debug("Could not fetch discs for %s: %s", hh_id, e)
+
             # Tonieboxes
             try:
                 boxes = await self.client.get_tonieboxes(hh_id)
@@ -538,8 +581,20 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     if not b_id:
                         continue
 
-                    placement = box.get("placement", {})
-                    placed_tonie = placement.get("tonie", {}) if placement else {}
+                    placement = box.get("placement") or {}
+                    placed_tonie = placement.get("tonie") or {}
+
+                    # Enrich placed tonie with name/image from known creative/content tonies
+                    if isinstance(placed_tonie, dict) and placed_tonie.get("id"):
+                        placed_id = placed_tonie["id"]
+                        known = (
+                            hh_data["creativetonies"].get(placed_id)
+                            or hh_data["contenttonies"].get(placed_id)
+                            or hh_data["discs"].get(placed_id)
+                        )
+                        if known:
+                            placed_tonie.setdefault("name", known.get("name"))
+                            placed_tonie.setdefault("imageUrl", known.get("image_url"))
 
                     # Playback info — only fetch when a tonie is actively placed
                     playback_info: dict = {}

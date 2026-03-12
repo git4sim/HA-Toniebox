@@ -27,7 +27,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .device_info import content_tonie_device_info
+from .device_info import content_tonie_device_info, disc_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -322,5 +322,161 @@ class ContentTonieLanguageSelect(_CTBase, SelectEntity):
         self.async_write_ha_state()
         await self.coordinator.client.patch_content_tonie(
             self._hh_id, self._ct_id, {"language": option}
+        )
+        await self.coordinator.async_request_refresh()
+
+
+# ── Content Disc entities ─────────────────────────────────────────────────────
+
+class _DiscBase(CoordinatorEntity):
+    """Base for all Content Disc entities."""
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, hh_id: str, disc_id: str) -> None:
+        super().__init__(coordinator)
+        self._hh_id = hh_id
+        self._disc_id = disc_id
+
+    @property
+    def _disc(self) -> dict:
+        return (
+            self.coordinator.data
+            .get("households", {}).get(self._hh_id, {})
+            .get("discs", {}).get(self._disc_id, {})
+        )
+
+    @property
+    def device_info(self) -> dict:
+        return disc_device_info(self.coordinator, self._hh_id, self._disc_id)
+
+
+class DiscCurrentBoxSensor(_DiscBase, SensorEntity):
+    """Which Toniebox this Content Disc is currently placed on."""
+    _attr_icon = "mdi:speaker-wireless"
+
+    def __init__(self, coordinator, hh_id, disc_id):
+        super().__init__(coordinator, hh_id, disc_id)
+        self._attr_unique_id = f"disc_{disc_id}_current_box"
+        self._attr_name = "Aktuelle Box"
+
+    @property
+    def native_value(self) -> str | None:
+        hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+        box_id = self._disc.get("toniebox_id")
+        if not box_id:
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                placement = tb.get("placement") or {}
+                if isinstance(placement, dict):
+                    placed_id = (
+                        (placement.get("tonie") or {}).get("id")
+                        or placement.get("tonieId")
+                        or placement.get("tonie_id")
+                    )
+                    if placed_id == self._disc_id:
+                        box_id = tb_id
+                        break
+        if not box_id:
+            return None
+        box = hh.get("tonieboxes", {}).get(box_id, {})
+        return box.get("name") or box_id
+
+
+class DiscSalesSensor(_DiscBase, SensorEntity):
+    """Sales/series ID of this Content Disc."""
+    _attr_icon = "mdi:barcode"
+
+    def __init__(self, coordinator, hh_id, disc_id):
+        super().__init__(coordinator, hh_id, disc_id)
+        self._attr_unique_id = f"disc_{disc_id}_sales_id"
+        self._attr_name = "Serien-ID"
+
+    @property
+    def native_value(self) -> str | None:
+        return self._disc.get("sales_id")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            "language": self._disc.get("language"),
+            "locked": self._disc.get("locked", False),
+            "name": self._disc.get("name"),
+        }
+
+
+class DiscActiveBinarySensor(_DiscBase, BinarySensorEntity):
+    """True when this Content Disc is currently placed on a Toniebox."""
+    _attr_icon = "mdi:play-circle-outline"
+    _attr_device_class = None
+
+    def __init__(self, coordinator, hh_id, disc_id):
+        super().__init__(coordinator, hh_id, disc_id)
+        self._attr_unique_id = f"disc_{disc_id}_active"
+        self._attr_name = "Gerade aktiv"
+
+    @property
+    def is_on(self) -> bool:
+        hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+        for tb in hh.get("tonieboxes", {}).values():
+            placement = tb.get("placement") or {}
+            if isinstance(placement, dict):
+                placed_id = (
+                    (placement.get("tonie") or {}).get("id")
+                    or placement.get("tonieId")
+                    or placement.get("tonie_id")
+                    or placement.get("id")
+                )
+                if placed_id == self._disc_id:
+                    return True
+        return False
+
+
+class DiscLockBinarySensor(_DiscBase, BinarySensorEntity):
+    """True when this Content Disc is locked to the current household."""
+    _attr_icon = "mdi:lock"
+
+    def __init__(self, coordinator, hh_id, disc_id):
+        super().__init__(coordinator, hh_id, disc_id)
+        self._attr_unique_id = f"disc_{disc_id}_locked_bs"
+        self._attr_name = "Im Haushalt gesperrt"
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self._disc.get("locked", False))
+
+
+class DiscLockSwitch(_DiscBase, SwitchEntity):
+    """Lock/unlock this Content Disc to the current household."""
+    _attr_icon = "mdi:lock-outline"
+
+    def __init__(self, coordinator, hh_id, disc_id):
+        super().__init__(coordinator, hh_id, disc_id)
+        self._attr_unique_id = f"disc_{disc_id}_lock_switch"
+        self._attr_name = "Im Haushalt sperren"
+        self._optimistic_state: bool | None = None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._optimistic_state = None
+        super()._handle_coordinator_update()
+
+    @property
+    def is_on(self) -> bool:
+        if self._optimistic_state is not None:
+            return self._optimistic_state
+        return bool(self._disc.get("locked", False))
+
+    async def async_turn_on(self, **kw) -> None:
+        self._optimistic_state = True
+        self.async_write_ha_state()
+        await self.coordinator.client.patch_disc(
+            self._hh_id, self._disc_id, {"lock": True}
+        )
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kw) -> None:
+        self._optimistic_state = False
+        self.async_write_ha_state()
+        await self.coordinator.client.patch_disc(
+            self._hh_id, self._disc_id, {"lock": False}
         )
         await self.coordinator.async_request_refresh()

@@ -559,7 +559,14 @@ class TonieCloudClient:
     async def get_content_tonies(self, household_id: str) -> list[dict]:
         """GET /households/{hh}/contenttonies — all purchased/assigned content tonies."""
         data = await self._get(f"/households/{household_id}/contenttonies")
+        _LOGGER.debug(
+            "get_content_tonies(%s): response type=%s, %s",
+            household_id, type(data).__name__,
+            f"keys={list(data.keys())}" if isinstance(data, dict) else f"len={len(data)}",
+        )
         if isinstance(data, list):
+            if data:
+                _LOGGER.debug("get_content_tonies: first item fields: %s", list(data[0].keys()) if isinstance(data[0], dict) else type(data[0]).__name__)
             return data
         if isinstance(data, dict):
             # Try known wrapper keys (both snake_case and camelCase)
@@ -569,6 +576,7 @@ class TonieCloudClient:
                 "figurines", "tonieFigurines",
             ):
                 if key in data and isinstance(data[key], list):
+                    _LOGGER.debug("get_content_tonies: found list under key '%s'", key)
                     return data[key]
             # Fallback: return the first list value found
             for key, val in data.items():
@@ -619,6 +627,26 @@ class TonieCloudClient:
         return data if isinstance(data, list) else data.get("results", [])
 
     # ── /households/{id}/discs ────────────────────────────────────────────────
+
+    async def get_discs(self, household_id: str) -> list[dict]:
+        """GET /households/{hh}/discs — all content discs."""
+        data = await self._get(f"/households/{household_id}/discs")
+        _LOGGER.debug(
+            "get_discs(%s): response type=%s, %s",
+            household_id, type(data).__name__,
+            f"keys={list(data.keys())}" if isinstance(data, dict) else f"len={len(data)}",
+        )
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            for key in ("discs", "data", "items", "results"):
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+            # Fallback: first list value
+            for val in data.values():
+                if isinstance(val, list):
+                    return val
+        return []
 
     async def patch_disc(self, household_id: str, disc_id: str, payload: dict) -> dict:
         """PATCH /households/{hh}/discs/{id} — e.g. lock disc."""

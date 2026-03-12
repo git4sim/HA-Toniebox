@@ -1,0 +1,138 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Toniebox Cloud Anmeldung",
+        "description": "Gib deine Toniebox / Boxine-Zugangsdaten ein.\nDeine Daten werden ausschließlich für die Kommunikation mit der offiziellen Toniebox Cloud (api.tonie.cloud) verwendet.",
+        "data": {
+          "username": "E-Mail-Adresse",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneute Anmeldung bei Toniebox",
+        "description": "Deine Sitzung ist abgelaufen. Bitte gib deine Zugangsdaten erneut ein.",
+        "data": {
+          "username": "E-Mail-Adresse",
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur Toniebox Cloud nicht möglich. Bitte überprüfe deine Internetverbindung.",
+      "invalid_auth": "Ungültige E-Mail-Adresse oder falsches Passwort.",
+      "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    },
+    "abort": {
+      "already_configured": "Dieses Toniebox-Konto ist bereits eingerichtet.",
+      "reauth_successful": "Die erneute Anmeldung war erfolgreich."
+    }
+  },
+  "services": {
+    "clear_chapters": {
+      "name": "Kapitel löschen",
+      "description": "Alle Kapitel eines Kreativ-Tonies löschen.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." }
+      }
+    },
+    "sort_chapters": {
+      "name": "Kapitel sortieren",
+      "description": "Kapitel eines Kreativ-Tonies sortieren.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "sort_by": { "name": "Sortieren nach", "description": "Kapitel sortieren nach: Titel, Dateiname oder Datum." }
+      }
+    },
+    "remove_chapter": {
+      "name": "Kapitel entfernen",
+      "description": "Ein einzelnes Kapitel anhand seiner ID entfernen.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "chapter_id": { "name": "Kapitel-ID", "description": "Die ID des zu entfernenden Kapitels (aus dem Attribut 'chapters')." }
+      }
+    },
+    "move_chapter": {
+      "name": "Kapitel verschieben",
+      "description": "Ein Kapitel eine Position nach oben oder unten verschieben.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "chapter_id": { "name": "Kapitel-ID", "description": "Die ID des zu verschiebenden Kapitels." },
+        "direction": { "name": "Richtung", "description": "'up' verschiebt nach vorne, 'down' nach hinten in der Liste." }
+      }
+    },
+    "upload_audio": {
+      "name": "Audio hochladen",
+      "description": "Eine lokale Audiodatei als neues Kapitel auf einen Kreativ-Tonie hochladen. Unterstützte Formate: mp3, ogg, wav, flac, m4a, aac, opus.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "file_path": { "name": "Dateipfad", "description": "Absoluter Pfad zur Audiodatei auf dem HA-Host (z. B. /config/tonie_audio/geschichte.mp3)." },
+        "title": { "name": "Kapiteltitel", "description": "Titel des Kapitels. Standardmäßig wird der Dateiname ohne Erweiterung verwendet." }
+      }
+    },
+    "rename_tonie": {
+      "name": "Tonie umbenennen",
+      "description": "Einen Kreativ-Tonie umbenennen.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "name": { "name": "Neuer Name", "description": "Der neue Name des Tonies." }
+      }
+    },
+    "rename_toniebox": {
+      "name": "Toniebox umbenennen",
+      "description": "Eine Toniebox umbenennen.",
+      "fields": {
+        "entity_id": { "name": "Toniebox", "description": "Die media_player-Entität der Toniebox." },
+        "name": { "name": "Neuer Name", "description": "Der neue Name der Toniebox." }
+      }
+    },
+    "redeem_content_token": {
+      "name": "Inhalts-Token einlösen",
+      "description": "Einen kostenlosen Inhalts-Token auf einen Kreativ-Tonie einlösen.",
+      "fields": {
+        "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
+        "token": { "name": "Token", "description": "Der einzulösende Inhalts-Token." }
+      }
+    },
+    "apply_tune": {
+      "name": "Tune anwenden",
+      "description": "Einen gekauften Tune auf einen Tonie anwenden.",
+      "fields": {
+        "entity_id": { "name": "Tonie", "description": "Die Tonie-Entität." },
+        "tune_id": { "name": "Tune-ID", "description": "Die ID des anzuwendenden Tunes." }
+      }
+    },
+    "remove_tune": {
+      "name": "Tune entfernen",
+      "description": "Den aktiven Tune eines Tonies entfernen (stellt den Originalinhalt wieder her).",
+      "fields": {
+        "entity_id": { "name": "Tonie", "description": "Die Tonie-Entität." }
+      }
+    },
+    "redeem_voucher": {
+      "name": "Gutschein einlösen",
+      "description": "Einen Tunes-Gutscheincode einlösen.",
+      "fields": {
+        "code": { "name": "Gutscheincode", "description": "Der einzulösende Gutscheincode." }
+      }
+    },
+    "dismiss_all_notifications": {
+      "name": "Alle Benachrichtigungen schließen",
+      "description": "Alle Toniebox-Kontobenachrichtigungen löschen."
+    },
+    "accept_invitation": {
+      "name": "Einladung annehmen",
+      "description": "Eine ausstehende Haushaltseinladung annehmen.",
+      "fields": {
+        "invitation_id": { "name": "Einladungs-ID", "description": "Die ID der Einladung (aus dem Sensor 'Offene Einladungen')." }
+      }
+    },
+    "decline_invitation": {
+      "name": "Einladung ablehnen",
+      "description": "Eine ausstehende Haushaltseinladung ablehnen.",
+      "fields": {
+        "invitation_id": { "name": "Einladungs-ID", "description": "Die ID der Einladung." }
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Unofficial Home Assistant Integration for Toniebox / Tonie Cloud</strong><br/>
-  Vollständige Integration deiner Creative Tonies und Tonieboxen in Home Assistant.
+  Vollständige Integration deiner Tonieboxen, Creative Tonies, Content Tonies und Content Discs in Home Assistant.
 </p>
 
 <p align="center">
@@ -35,13 +35,16 @@
 ## Features
 
 - 🧸 Jede **Creative Tonie** als eigenes Gerät mit Media Player, Cover-Bild und Kapitelliste
-- 📻 Jede **Toniebox** als eigenes Gerät — zeigt den aktuell aufgelegten Tonie
-- 🔌 **LED** und **Lautstärkeerkennung** direkt über Switches steuerbar
-- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, letzten Online-Status
-- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum) und Leeren der Kapitelliste
-- 🔽 **Select-Entity** zur direkten Sortierauswahl
-- 🔴 **Binary Sensors** für Transcoding-Status, Live-Modus, Online-Status
-- ⚙️ **10 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
+- 🎭 Jede **Content Tonie** (gekaufte Figur) als eigenes Gerät mit Status, aktiver Box, Serien-ID
+- 💿 Jede **Content Disc** als eigenes Gerät mit Status und Haushalt-Sperr-Funktion
+- 📻 Jede **Toniebox** als eigenes Gerät — zeigt die aktuell aufgelegte Figur mit Name und Cover
+- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, aktive Box
+- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Leeren und Aktualisieren
+- 🔴 **Binary Sensors** für Transcoding, Live-Modus, Haushalt-Lock, aktive Figur
+- 🎛️ **Switches** für LED, Kapitel-Überspringen, Scrubbing, Offline-Modus, Haushalt-Sperren
+- 🌐 **Select-Entities** für Sprache, LED-Level, Tap-Richtung, Alters-Modus
+- ⚙️ **13 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
+- 🌍 **Übersetzungen** für Deutsch, Englisch, Französisch, Spanisch und Italienisch
 - 🔐 Keycloak OpenID Connect Authentifizierung — selbe Zugangsdaten wie die Toniebox App
 - 🛠️ Config Flow Setup — **kein YAML erforderlich**
 - 📦 HACS-kompatibel
@@ -86,13 +89,17 @@ Die Integration erstellt eine logische Gerätehierarchie in Home Assistant:
 
 ```
 Haushalt (Hub)
-├── Toniebox 1  →  Media Player · LED Switch · Mute Switch · Firmware · Last Seen
-├── Toniebox 2  →  ...
-├── Creative Tonie A  →  Media Player · Kapitel · Dauer · Sort/Clear Buttons · Live/Privat Switch
-└── Creative Tonie B  →  ...
+├── Toniebox 1       →  Media Player · Switches · Sensoren · Buttons · Select
+├── Toniebox 2       →  ...
+├── Creative Tonie A →  Media Player · Kapitel · Dauer · Sort/Clear Buttons · Live/Privat Switch
+├── Creative Tonie B →  ...
+├── Content Tonie 1  →  Sensoren · Binary Sensors · Lock Switch
+├── Content Tonie 2  →  ...
+├── Content Disc 1   →  Sensoren · Binary Sensors · Lock Switch
+└── Content Disc 2   →  ...
 ```
 
-Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox** mit seinen eigenen Entities. Über "Gruppieren nach Haushalt" in der Geräteliste werden alle Geräte übersichtlich dem jeweiligen Haushalt zugeordnet.
+Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox** mit seinen eigenen Entities.
 
 ---
 
@@ -104,6 +111,8 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 |---|---|
 | `sensor.<haushalt>_account` | Angemeldetes Konto (E-Mail) |
 | `sensor.<haushalt>_creative_tonies` | Anzahl Creative Tonies |
+| `sensor.<haushalt>_content_tonies` | Anzahl Content Tonies (gekaufte Figuren) |
+| `sensor.<haushalt>_content_discs` | Anzahl Content Discs |
 | `sensor.<haushalt>_tonieboxen` | Anzahl Tonieboxen |
 | `sensor.<haushalt>_kinder` | Anzahl Kinder-Profile |
 | `sensor.<haushalt>_mitglieder` | Anzahl Haushaltsmitglieder |
@@ -115,14 +124,31 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 
 | Entity | Beschreibung |
 |---|---|
-| `media_player.<toniebox>` | Aktuell aufgelegter Tonie, Cover-Bild, Status |
-| `switch.<toniebox>_led` | LED ein/aus |
-| `switch.<toniebox>_lautstaerke_kabel_ignorieren` | Lautstärke-Kabel-Erkennung überspringen |
+| `media_player.<toniebox>` | Aktuell aufgelegte Figur, Cover-Bild, Wiedergabe-Position |
+| `switch.<toniebox>_kapitel_ueberspringen` | Kapitel-Überspringen per Tippen ein/aus |
+| `switch.<toniebox>_vorspulen_zurueckspulen` | Scrubbing durch Kippen ein/aus |
+| `switch.<toniebox>_offline_modus` | Offline-Modus (Anzeige) |
+| `switch.<toniebox>_kippen_und_klopfen` | Beschleunigungssensor ein/aus (ältere Boxen) |
 | `sensor.<toniebox>_firmware` | Aktuelle Firmware-Version |
 | `sensor.<toniebox>_zuletzt_gesehen` | Zeitstempel der letzten Verbindung |
-| `binary_sensor.<toniebox>_online` | Toniebox erreichbar ja/nein |
-| `binary_sensor.<toniebox>_led_aktiv` | LED-Status (lesend) |
+| `sensor.<toniebox>_online_status` | API Online-Status (connected / offline / unknown) |
+| `sensor.<toniebox>_generation` | Modell-Generation (classic / rosered / tng) |
+| `sensor.<toniebox>_features` | Unterstützte Funktionen |
+| `sensor.<toniebox>_zeitzone` | Konfigurierte Zeitzone |
+| `sensor.<toniebox>_einstellungen_uebertragen` | Einstellungen synchronisiert (ja/nein) |
+| `sensor.<toniebox>_setup_wlan` | WLAN-SSID des Setup-Netzwerks |
+| `sensor.<toniebox>_hinzugefuegt_am` | Registrierungsdatum |
+| `sensor.<toniebox>_schlafenszeit_farbe` | Nachtlicht-Farbe (tng) |
+| `binary_sensor.<toniebox>_online` | Toniebox zuletzt aktiv (Erreichbarkeit) |
+| `binary_sensor.<toniebox>_led_aktiv` | LED-Status |
+| `select.<toniebox>_led_level` | LED-Helligkeit |
+| `select.<toniebox>_sprache` | Spracheinstellung |
+| `select.<toniebox>_tap_richtung` | Tipp-Richtung |
+| `select.<toniebox>_alters_modus` | Alters-Modus |
+| `number.<toniebox>_max_lautstaerke` | Maximale Lautstärke |
+| `number.<toniebox>_lightring_helligkeit` | Lichtring-Helligkeit |
 | `button.<toniebox>_aktualisieren` | Gerät neu laden |
+| `button.<toniebox>_werkseinstellungen` | Einstellungen zurücksetzen |
 
 ### Pro Creative Tonie
 
@@ -131,17 +157,44 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `media_player.<tonie>` | Hauptentität mit Cover-Bild und Kapitelübersicht |
 | `sensor.<tonie>_kapitel` | Anzahl Kapitel (inkl. Kapitelliste als Attribut) |
 | `sensor.<tonie>_gesamtdauer` | Gesamtspieldauer in Minuten |
+| `sensor.<tonie>_freie_zeit` | Verbleibende freie Kapazität in Minuten (max. 90 min) |
+| `sensor.<tonie>_transkodierung` | Transkodierungs-Status |
 | `switch.<tonie>_privat` | Tonie für Gastmitglieder ausblenden |
 | `switch.<tonie>_live` | Live-Modus aktivieren |
-| `binary_sensor.<tonie>_wird_verarbeitet` | Transcoding läuft gerade |
-| `binary_sensor.<tonie>_live` | Live-Status (lesend) |
-| `binary_sensor.<tonie>_privat` | Privat-Status (lesend) |
+| `binary_sensor.<tonie>_wird_verarbeitet` | Transkodierung läuft |
+| `binary_sensor.<tonie>_live` | Live-Status |
+| `binary_sensor.<tonie>_privat` | Privat-Status |
 | `button.<tonie>_alle_kapitel_loeschen` | Alle Kapitel entfernen |
 | `button.<tonie>_nach_titel_sortieren` | Kapitel alphabetisch sortieren |
 | `button.<tonie>_nach_dateiname_sortieren` | Kapitel nach Dateiname sortieren |
 | `button.<tonie>_nach_datum_sortieren` | Kapitel nach Datum sortieren |
 | `button.<tonie>_aktualisieren` | Tonie-Daten neu laden |
 | `select.<tonie>_kapitel_sortieren` | Sortierart auswählen und anwenden |
+
+### Pro Content Tonie (gekaufte Figur)
+
+| Entity | Beschreibung |
+|---|---|
+| `sensor.<content_tonie>_aktuelle_box` | Name der Toniebox, auf der die Figur liegt |
+| `sensor.<content_tonie>_kapitel` | Anzahl Kapitel |
+| `sensor.<content_tonie>_gesamtdauer` | Gesamtspieldauer in Minuten |
+| `sensor.<content_tonie>_serien_id` | Serien- / Sales-ID der Figur |
+| `binary_sensor.<content_tonie>_gerade_aktiv` | Liegt gerade auf einer Toniebox |
+| `binary_sensor.<content_tonie>_im_haushalt_gesperrt` | An diesen Haushalt gebunden |
+| `binary_sensor.<content_tonie>_transkodierung_aktiv` | Transkodierung läuft |
+| `switch.<content_tonie>_im_haushalt_sperren` | Figur an Haushalt binden / freigeben |
+| `button.<content_tonie>_tune_entfernen` | Aktiven Tune entfernen |
+| `select.<content_tonie>_sprache` | Sprache (mehrsprachige Figuren) |
+
+### Pro Content Disc
+
+| Entity | Beschreibung |
+|---|---|
+| `sensor.<disc>_aktuelle_box` | Name der Toniebox, auf der die Disc liegt |
+| `sensor.<disc>_serien_id` | Serien- / Sales-ID der Disc |
+| `binary_sensor.<disc>_gerade_aktiv` | Liegt gerade auf einer Toniebox |
+| `binary_sensor.<disc>_im_haushalt_gesperrt` | An diesen Haushalt gebunden |
+| `switch.<disc>_im_haushalt_sperren` | Disc an Haushalt binden / freigeben |
 
 ---
 
@@ -174,6 +227,28 @@ data:
 ```
 
 > Die Kapitel-IDs stehen als Attribut `chapters` am Media Player oder Kapitel-Sensor.
+
+### `toniebox.move_chapter` — Kapitel verschieben
+
+```yaml
+service: toniebox.move_chapter
+data:
+  entity_id: media_player.mein_tonie
+  chapter_id: "abc123"
+  direction: up   # up | down
+```
+
+### `toniebox.upload_audio` — Audio hochladen
+
+```yaml
+service: toniebox.upload_audio
+data:
+  entity_id: media_player.mein_tonie
+  file_path: /config/tonie_audio/geschichte.mp3
+  title: "Meine Geschichte"   # optional
+```
+
+Unterstützte Formate: `mp3`, `ogg`, `wav`, `flac`, `m4a`, `aac`, `opus`.
 
 ### `toniebox.rename_tonie` — Tonie umbenennen
 
@@ -233,6 +308,47 @@ data:
 service: toniebox.dismiss_all_notifications
 ```
 
+### `toniebox.accept_invitation` / `toniebox.decline_invitation` — Einladung annehmen/ablehnen
+
+```yaml
+service: toniebox.accept_invitation
+data:
+  invitation_id: "einladungs-id"
+```
+
+---
+
+## Automations-Beispiele
+
+### Licht einschalten wenn Lieblings-Tonie aufgelegt wird
+
+```yaml
+automation:
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.benjamin_bluemchen_gerade_aktiv
+      to: "on"
+  action:
+    - service: light.turn_on
+      target:
+        entity_id: light.kinderzimmer
+```
+
+### Benachrichtigung wenn Toniebox offline geht
+
+```yaml
+automation:
+  trigger:
+    - platform: state
+      entity_id: binary_sensor.kinderzimmer_online
+      to: "off"
+      for: "00:05:00"
+  action:
+    - service: notify.mobile_app
+      data:
+        message: "Toniebox Kinderzimmer ist seit 5 Minuten offline."
+```
+
 ---
 
 ## Dashboard-Beispiel
@@ -241,25 +357,27 @@ service: toniebox.dismiss_all_notifications
 type: vertical-stack
 cards:
   - type: picture-entity
-    entity: media_player.mein_tonie
+    entity: media_player.meine_toniebox
     show_name: true
     show_state: true
   - type: entities
+    title: Creative Tonie
     entities:
       - sensor.mein_tonie_kapitel
       - sensor.mein_tonie_gesamtdauer
+      - sensor.mein_tonie_freie_zeit
       - select.mein_tonie_kapitel_sortieren
   - type: horizontal-stack
     cards:
       - type: button
         entity: button.mein_tonie_alle_kapitel_loeschen
-        name: "🗑 Leeren"
+        name: "Leeren"
       - type: button
         entity: button.mein_tonie_nach_titel_sortieren
-        name: "🔤 A–Z"
+        name: "A–Z"
       - type: button
         entity: button.mein_tonie_aktualisieren
-        name: "🔄 Aktualisieren"
+        name: "Aktualisieren"
 ```
 
 ---
@@ -274,6 +392,9 @@ logger:
 ```
 
 Oder über **Einstellungen → Geräte & Dienste → Toniebox → Debug-Protokollierung aktivieren**.
+
+> [!TIP]
+> Debug-Logs sind besonders hilfreich wenn Content Tonies oder Content Discs nicht angezeigt werden — sie zeigen die exakten API-Antwortfelder und helfen beim Diagnosieren von Parsing-Problemen.
 
 ---
 

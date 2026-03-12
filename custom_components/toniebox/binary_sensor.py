@@ -17,6 +17,8 @@ from .content_tonie import (
     ContentTonieActiveBinarySensor,
     ContentTonieLockBinarySensor,
     ContentTonieTranscodingBinarySensor,
+    DiscActiveBinarySensor,
+    DiscLockBinarySensor,
 )
 from .device_info import toniebox_device_info, creative_tonie_device_info
 
@@ -47,6 +49,11 @@ async def async_setup_entry(
                 ContentTonieActiveBinarySensor(coordinator, hh_id, ct_id),
                 ContentTonieLockBinarySensor(coordinator, hh_id, ct_id),
                 ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
+            ]
+        for disc_id in hh.get("discs", {}):
+            entities += [
+                DiscActiveBinarySensor(coordinator, hh_id, disc_id),
+                DiscLockBinarySensor(coordinator, hh_id, disc_id),
             ]
 
     async_add_entities(entities)

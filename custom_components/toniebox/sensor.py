@@ -13,6 +13,8 @@ from .content_tonie import (
     ContentTonieChapterCountSensor,
     ContentTonieDurationSensor,
     ContentTonieSalesSensor,
+    DiscCurrentBoxSensor,
+    DiscSalesSensor,
 )
 from .device_info import (
     household_device_info,
@@ -36,6 +38,7 @@ async def async_setup_entry(
             ),
             HouseholdCountSensor(coordinator, hh_id, "tonies",        "Creative Tonies",  "mdi:teddy-bear",         "creativetonies"),
             HouseholdCountSensor(coordinator, hh_id, "content_tonies","Content Tonies",   "mdi:music-box-multiple", "contenttonies"),
+            HouseholdCountSensor(coordinator, hh_id, "discs",         "Content Discs",    "mdi:disc",               "discs"),
             HouseholdCountSensor(coordinator, hh_id, "tonieboxes",    "Tonieboxen",        "mdi:speaker",            "tonieboxes"),
             HouseholdCountSensor(coordinator, hh_id, "children",      "Kinder",            "mdi:account-child",      "children"),
             HouseholdCountSensor(coordinator, hh_id, "members",       "Mitglieder",        "mdi:account-group",      "memberships"),
@@ -78,6 +81,13 @@ async def async_setup_entry(
                 ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
                 ContentTonieDurationSensor(coordinator, hh_id, ct_id),
                 ContentTonieSalesSensor(coordinator, hh_id, ct_id),
+            ]
+
+        # ── Content Disc sensors (one device per disc) ────────────────────────
+        for disc_id in hh.get("discs", {}):
+            entities += [
+                DiscCurrentBoxSensor(coordinator, hh_id, disc_id),
+                DiscSalesSensor(coordinator, hh_id, disc_id),
             ]
 
     async_add_entities(entities)

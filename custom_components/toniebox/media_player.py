@@ -156,29 +156,48 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
     def device_info(self) -> dict:
         return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
 
+    def _placed_tonie(self) -> dict:
+        """Return the tonie object currently placed on this box, or {}."""
+        return (self._tb.get("placement") or {}).get("tonie") or {}
+
+    def _resolve_tonie_name(self, tonie_id: str) -> str | None:
+        """Look up tonie name from known creative/content tonies by ID."""
+        hh = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+        known = (
+            hh.get("creativetonies", {}).get(tonie_id)
+            or hh.get("contenttonies", {}).get(tonie_id)
+            or hh.get("discs", {}).get(tonie_id)
+        )
+        return known.get("name") if known else None
+
     @property
     def state(self) -> MediaPlayerState:
-        placement = self._tb.get("placement", {})
-        if placement and placement.get("tonie"):
+        if self._placed_tonie():
             return MediaPlayerState.PLAYING
         return MediaPlayerState.ON if self._tb.get("last_seen") else MediaPlayerState.OFF
 
     @property
     def media_title(self) -> str | None:
-        tonie = self._tb.get("placement", {}).get("tonie")
+        tonie = self._placed_tonie()
         if not tonie:
             return "Kein Tonie aufgelegt"
         # Show chapter title from playback info if available
         info = self._tb.get("playback_info", {})
         chapter_title = info.get("chapterTitle") or info.get("chapter_title")
-        tonie_name = tonie.get("name") or tonie.get("id", "Tonie aufgelegt")
+        tonie_id = tonie.get("id", "")
+        tonie_name = (
+            tonie.get("name")
+            or self._resolve_tonie_name(tonie_id)
+            or tonie_id
+            or "Tonie aufgelegt"
+        )
         if chapter_title:
             return f"{tonie_name} – {chapter_title}"
         return tonie_name
 
     @property
     def media_image_url(self) -> str | None:
-        tonie = self._tb.get("placement", {}).get("tonie") or {}
+        tonie = self._placed_tonie()
         return tonie.get("imageUrl") or tonie.get("image_url")
 
     @property
@@ -217,7 +236,7 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
             "skip_mute_detection": tb.get("skip_mute_detection", False),
             "last_seen": tb.get("last_seen"),
             "firmware": tb.get("firmware", {}),
-            "placement": tb.get("placement", {}),
+            "placement": tb.get("placement") or {},
         }
         if info:
             attrs["playback_info"] = info

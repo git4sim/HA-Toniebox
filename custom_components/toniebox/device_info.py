@@ -60,6 +60,22 @@ def creative_tonie_device_info(coordinator, hh_id: str, t_id: str) -> dict:
     }
 
 
+def disc_device_info(coordinator, hh_id: str, disc_id: str) -> dict:
+    """Content Disc — child of household hub."""
+    disc = (
+        coordinator.data
+        .get("households", {}).get(hh_id, {})
+        .get("discs", {}).get(disc_id, {})
+    )
+    return {
+        "identifiers": {(DOMAIN, f"disc_{disc_id}")},
+        "name": disc.get("name", "Content Disc"),
+        "manufacturer": "Boxine GmbH",
+        "model": "Content Disc",
+        "via_device": (DOMAIN, f"hh_{hh_id}"),
+    }
+
+
 def content_tonie_device_info(coordinator, hh_id: str, ct_id: str) -> dict:
     """Content Tonie figurine — child of household hub."""
     ct = (
