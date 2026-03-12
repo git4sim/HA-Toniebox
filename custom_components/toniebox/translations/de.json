@@ -136,6 +136,9 @@
     }
   },
   "entity": {
+    "sensor": {
+      "current_tonie": {"name": "Aktuelle Figur"}
+    },
     "number": {
       "lightring_brightness": {"name": "Helligkeit Ring"},
       "bedtime_lightring_brightness": {"name": "Schlafenszeit Helligkeit Ring"},

@@ -33,87 +33,150 @@
       "name": "Supprimer les chapitres",
       "description": "Supprimer tous les chapitres d'un Tonie Créatif.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        }
       }
     },
     "sort_chapters": {
       "name": "Trier les chapitres",
       "description": "Trier les chapitres d'un Tonie Créatif.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "sort_by": { "name": "Trier par", "description": "Trier les chapitres par : titre, nom de fichier ou date." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "sort_by": {
+          "name": "Trier par",
+          "description": "Trier les chapitres par : titre, nom de fichier ou date."
+        }
       }
     },
     "remove_chapter": {
       "name": "Supprimer un chapitre",
       "description": "Supprimer un chapitre par son ID.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "chapter_id": { "name": "ID du chapitre", "description": "L'ID du chapitre à supprimer (depuis l'attribut 'chapters')." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "chapter_id": {
+          "name": "ID du chapitre",
+          "description": "L'ID du chapitre à supprimer (depuis l'attribut 'chapters')."
+        }
       }
     },
     "move_chapter": {
       "name": "Déplacer un chapitre",
       "description": "Déplacer un chapitre d'une position vers le haut ou vers le bas.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "chapter_id": { "name": "ID du chapitre", "description": "L'ID du chapitre à déplacer." },
-        "direction": { "name": "Direction", "description": "'up' déplace avant dans la liste, 'down' déplace après." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "chapter_id": {
+          "name": "ID du chapitre",
+          "description": "L'ID du chapitre à déplacer."
+        },
+        "direction": {
+          "name": "Direction",
+          "description": "'up' déplace avant dans la liste, 'down' déplace après."
+        }
       }
     },
     "upload_audio": {
       "name": "Téléverser de l'audio",
       "description": "Téléverser un fichier audio local comme nouveau chapitre sur un Tonie Créatif. Formats pris en charge : mp3, ogg, wav, flac, m4a, aac, opus.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "file_path": { "name": "Chemin du fichier", "description": "Chemin absolu vers le fichier audio sur l'hôte HA (ex. /config/tonie_audio/histoire.mp3)." },
-        "title": { "name": "Titre du chapitre", "description": "Titre affiché pour ce chapitre. Par défaut, le nom du fichier sans extension est utilisé." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "file_path": {
+          "name": "Chemin du fichier",
+          "description": "Chemin absolu vers le fichier audio sur l'hôte HA (ex. /config/tonie_audio/histoire.mp3)."
+        },
+        "title": {
+          "name": "Titre du chapitre",
+          "description": "Titre affiché pour ce chapitre. Par défaut, le nom du fichier sans extension est utilisé."
+        }
       }
     },
     "rename_tonie": {
       "name": "Renommer le Tonie",
       "description": "Renommer un Tonie Créatif.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "name": { "name": "Nouveau nom", "description": "Le nouveau nom du Tonie." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "name": {
+          "name": "Nouveau nom",
+          "description": "Le nouveau nom du Tonie."
+        }
       }
     },
     "rename_toniebox": {
       "name": "Renommer la Toniebox",
       "description": "Renommer un appareil Toniebox.",
       "fields": {
-        "entity_id": { "name": "Toniebox", "description": "L'entité media_player de la Toniebox." },
-        "name": { "name": "Nouveau nom", "description": "Le nouveau nom de la Toniebox." }
+        "entity_id": {
+          "name": "Toniebox",
+          "description": "L'entité media_player de la Toniebox."
+        },
+        "name": {
+          "name": "Nouveau nom",
+          "description": "Le nouveau nom de la Toniebox."
+        }
       }
     },
     "redeem_content_token": {
       "name": "Utiliser un jeton de contenu",
       "description": "Utiliser un jeton de contenu gratuit sur un Tonie Créatif.",
       "fields": {
-        "entity_id": { "name": "Tonie Créatif", "description": "L'entité media_player du Tonie Créatif cible." },
-        "token": { "name": "Jeton", "description": "Le jeton de contenu à utiliser." }
+        "entity_id": {
+          "name": "Tonie Créatif",
+          "description": "L'entité media_player du Tonie Créatif cible."
+        },
+        "token": {
+          "name": "Jeton",
+          "description": "Le jeton de contenu à utiliser."
+        }
       }
     },
     "apply_tune": {
       "name": "Appliquer un Tune",
       "description": "Appliquer un Tune acheté à un Tonie.",
       "fields": {
-        "entity_id": { "name": "Tonie", "description": "L'entité du Tonie." },
-        "tune_id": { "name": "ID du Tune", "description": "L'ID du Tune à appliquer." }
+        "entity_id": {
+          "name": "Tonie",
+          "description": "L'entité du Tonie."
+        },
+        "tune_id": {
+          "name": "ID du Tune",
+          "description": "L'ID du Tune à appliquer."
+        }
       }
     },
     "remove_tune": {
       "name": "Supprimer le Tune",
       "description": "Supprimer le Tune actif d'un Tonie (restaure le contenu original).",
       "fields": {
-        "entity_id": { "name": "Tonie", "description": "L'entité du Tonie." }
+        "entity_id": {
+          "name": "Tonie",
+          "description": "L'entité du Tonie."
+        }
       }
     },
     "redeem_voucher": {
       "name": "Utiliser un bon",
       "description": "Utiliser un code bon Tunes.",
       "fields": {
-        "code": { "name": "Code bon", "description": "Le code bon à utiliser." }
+        "code": {
+          "name": "Code bon",
+          "description": "Le code bon à utiliser."
+        }
       }
     },
     "dismiss_all_notifications": {
@@ -124,53 +187,107 @@
       "name": "Accepter l'invitation",
       "description": "Accepter une invitation de foyer en attente.",
       "fields": {
-        "invitation_id": { "name": "ID d'invitation", "description": "L'ID de l'invitation (depuis le capteur 'Invitations en attente')." }
+        "invitation_id": {
+          "name": "ID d'invitation",
+          "description": "L'ID de l'invitation (depuis le capteur 'Invitations en attente')."
+        }
       }
     },
     "decline_invitation": {
       "name": "Refuser l'invitation",
       "description": "Refuser une invitation de foyer en attente.",
       "fields": {
-        "invitation_id": { "name": "ID d'invitation", "description": "L'ID de l'invitation." }
+        "invitation_id": {
+          "name": "ID d'invitation",
+          "description": "L'ID de l'invitation."
+        }
       }
     }
   },
   "entity": {
+    "sensor": {
+      "current_tonie": {
+        "name": "Figurine actuelle"
+      }
+    },
     "number": {
-      "lightring_brightness": {"name": "Luminosité de l'anneau"},
-      "bedtime_lightring_brightness": {"name": "Luminosité anneau (heure du coucher)"},
-      "bedtime_max_volume": {"name": "Volume max. boîte (heure du coucher)"},
-      "bedtime_max_headphone_volume": {"name": "Volume max. casque (heure du coucher)"},
-      "max_volume": {"name": "Volume max. boîte"},
-      "max_headphone_volume": {"name": "Volume max. casque"}
+      "lightring_brightness": {
+        "name": "Luminosité de l'anneau"
+      },
+      "bedtime_lightring_brightness": {
+        "name": "Luminosité anneau (heure du coucher)"
+      },
+      "bedtime_max_volume": {
+        "name": "Volume max. boîte (heure du coucher)"
+      },
+      "bedtime_max_headphone_volume": {
+        "name": "Volume max. casque (heure du coucher)"
+      },
+      "max_volume": {
+        "name": "Volume max. boîte"
+      },
+      "max_headphone_volume": {
+        "name": "Volume max. casque"
+      }
     },
     "select": {
       "led_level": {
         "name": "Luminosité LED",
-        "state": {"on": "Allumé", "off": "Éteint", "dimmed": "Tamisé"}
+        "state": {
+          "on": "Allumé",
+          "off": "Éteint",
+          "dimmed": "Tamisé"
+        }
       },
       "skipping_direction": {
         "name": "Oreille pour passer",
-        "state": {"right": "Oreille droite", "left": "Oreille gauche"}
+        "state": {
+          "right": "Oreille droite",
+          "left": "Oreille gauche"
+        }
       },
       "tap_direction": {
         "name": "Direction du tapotement",
-        "state": {"left": "Gauche", "right": "Droite"}
+        "state": {
+          "left": "Gauche",
+          "right": "Droite"
+        }
       },
-      "age_mode": {"name": "Mode d'âge"},
+      "age_mode": {
+        "name": "Mode d'âge"
+      },
       "language": {
         "name": "Langue de la boîte",
-        "state": {"de": "Allemand", "en": "Anglais", "en-us": "Anglais (É.-U.)", "fr": "Français"}
+        "state": {
+          "de": "Allemand",
+          "en": "Anglais",
+          "en-us": "Anglais (É.-U.)",
+          "fr": "Français"
+        }
       },
-      "sort_select": {"name": "Trier les chapitres"}
+      "sort_select": {
+        "name": "Trier les chapitres"
+      }
     },
     "switch": {
-      "skipping": {"name": "Passer avec l'oreille"},
-      "scrubbing": {"name": "Incliner pour rembobiner"},
-      "offline_mode": {"name": "Mode hors ligne"},
-      "accelerometer": {"name": "Incliner et tapoter"},
-      "private": {"name": "Jouer uniquement dans ce foyer"},
-      "live": {"name": "Mode en direct"}
+      "skipping": {
+        "name": "Passer avec l'oreille"
+      },
+      "scrubbing": {
+        "name": "Incliner pour rembobiner"
+      },
+      "offline_mode": {
+        "name": "Mode hors ligne"
+      },
+      "accelerometer": {
+        "name": "Incliner et tapoter"
+      },
+      "private": {
+        "name": "Jouer uniquement dans ce foyer"
+      },
+      "live": {
+        "name": "Mode en direct"
+      }
     }
   }
 }

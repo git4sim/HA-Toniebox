@@ -20,7 +20,6 @@ from .tonie_client import TonieCloudClient, TonieCloudAuthError, TonieCloudAPIEr
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
-    Platform.MEDIA_PLAYER,
     Platform.SENSOR,
     Platform.BUTTON,
     Platform.SELECT,
@@ -67,51 +66,31 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 # ── Entity lookup helpers ─────────────────────────────────────────────────────
 
 async def _find_creative_tonie(hass: HomeAssistant, entity_id: str):
-    """Look up (client, household_id, tonie_id) for a Creative Tonie entity.
-
-    Uses the entity registry to resolve entity_id → unique_id → tonie_id,
-    which is robust against renames and special characters in names.
-    Falls back to legacy slug matching for backwards compatibility.
-    """
+    """Look up (client, household_id, tonie_id) for any Creative Tonie entity."""
     registry = er.async_get(hass)
     entry = registry.async_get(entity_id)
     if entry is not None and entry.unique_id.startswith("ct_"):
-        # unique_id format: ct_{t_id}_player
-        t_id = entry.unique_id[3:].removesuffix("_player")
+        uid = entry.unique_id[3:]  # strip "ct_"
         for coordinator in hass.data.get(DOMAIN, {}).values():
             for hh_id, hh in coordinator.data.get("households", {}).items():
-                if t_id in hh.get("creativetonies", {}):
-                    return coordinator.client, hh_id, t_id
-
-    # Legacy fallback: slug matching
-    for coordinator in hass.data.get(DOMAIN, {}).values():
-        for hh_id, hh in coordinator.data.get("households", {}).items():
-            for t_id, t in hh.get("creativetonies", {}).items():
-                slug = _slugify(t.get("name", t_id))
-                if entity_id in (f"media_player.toniebox_{slug}", entity_id):
-                    return coordinator.client, hh_id, t_id
+                for t_id in hh.get("creativetonies", {}):
+                    if uid == t_id or uid.startswith(t_id + "_"):
+                        return coordinator.client, hh_id, t_id
 
     return None, None, None
 
 
 async def _find_toniebox(hass: HomeAssistant, entity_id: str):
-    """Look up (client, household_id, toniebox_id) for a Toniebox entity."""
+    """Look up (client, household_id, toniebox_id) for any Toniebox entity."""
     registry = er.async_get(hass)
     entry = registry.async_get(entity_id)
     if entry is not None and entry.unique_id.startswith("tb_"):
-        tb_id = entry.unique_id[3:].removesuffix("_player")
+        uid = entry.unique_id[3:]  # strip "tb_"
         for coordinator in hass.data.get(DOMAIN, {}).values():
             for hh_id, hh in coordinator.data.get("households", {}).items():
-                if tb_id in hh.get("tonieboxes", {}):
-                    return coordinator.client, hh_id, tb_id
-
-    # Legacy fallback
-    for coordinator in hass.data.get(DOMAIN, {}).values():
-        for hh_id, hh in coordinator.data.get("households", {}).items():
-            for tb_id, tb in hh.get("tonieboxes", {}).items():
-                slug = _slugify(tb.get("name", tb_id))
-                if entity_id in (f"media_player.toniebox_box_{slug}", entity_id):
-                    return coordinator.client, hh_id, tb_id
+                for tb_id in hh.get("tonieboxes", {}):
+                    if uid == tb_id or uid.startswith(tb_id + "_"):
+                        return coordinator.client, hh_id, tb_id
 
     return None, None, None
 

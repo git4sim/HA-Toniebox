@@ -136,6 +136,9 @@
     }
   },
   "entity": {
+    "sensor": {
+      "current_tonie": {"name": "Current Figure"}
+    },
     "number": {
       "lightring_brightness": {"name": "Ring Brightness"},
       "bedtime_lightring_brightness": {"name": "Bedtime Ring Brightness"},

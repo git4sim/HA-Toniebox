@@ -50,6 +50,7 @@ async def async_setup_entry(
         for tb_id, tb in hh.get("tonieboxes", {}).items():
             features = tb.get("features", [])
             entities += [
+                TonieboxCurrentTonieSensor(coordinator, hh_id, tb_id),
                 TonieboxFirmwareSensor(coordinator, hh_id, tb_id),
                 TonieboxLastSeenSensor(coordinator, hh_id, tb_id),
                 TonieboxOnlineStateSensor(coordinator, hh_id, tb_id),
@@ -490,3 +491,56 @@ class CreativeTonieCapacitySensor(_TonieBase):
     def native_value(self):
         secs = self._tonie.get("secondsRemaining")
         return round(secs / 60, 1) if secs is not None else None
+
+
+# ── Toniebox current tonie sensor ─────────────────────────────────────────────
+
+class TonieboxCurrentTonieSensor(_TbBase):
+    """The tonie currently placed on the box, enriched with playback-info data."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:music-note"
+    _attr_translation_key = "current_tonie"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_current_tonie"
+
+    @property
+    def _placement(self) -> dict:
+        return self._tb.get("placement") or {}
+
+    @property
+    def _placed_tonie(self) -> dict:
+        return self._placement.get("tonie") or {}
+
+    @property
+    def _playback(self) -> dict:
+        return self._tb.get("playback_info") or {}
+
+    @property
+    def native_value(self) -> str | None:
+        tonie = self._placed_tonie
+        return tonie.get("name") or tonie.get("id") or None
+
+    @property
+    def entity_picture(self) -> str | None:
+        return (
+            self._playback.get("imageUrl")
+            or self._placed_tonie.get("imageUrl")
+            or self._placed_tonie.get("image_url")
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        tonie = self._placed_tonie
+        pi = self._playback
+        return {
+            "tonie_id": tonie.get("id"),
+            "tonie_type": pi.get("tonieType"),
+            "playback_status": pi.get("status"),
+            "image_url": pi.get("imageUrl") or tonie.get("imageUrl"),
+            "chapters": [
+                {"title": c.get("title"), "seconds": c.get("seconds")}
+                for c in pi.get("chapters", [])
+            ],
+        }
