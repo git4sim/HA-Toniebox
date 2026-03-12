@@ -24,51 +24,15 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.components.select import SelectEntity
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .device_info import content_tonie_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
 # Languages supported by multi-language Content Tonies (same as Toniebox)
 _LANGUAGES = ["de", "en", "en-us", "fr"]
-
-
-# ── Setup ─────────────────────────────────────────────────────────────────────
-
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list = []
-
-    for hh_id, hh in coordinator.data.get("households", {}).items():
-        for ct_id, ct in hh.get("contenttonies", {}).items():
-            # ── Sensors ──────────────────────────────────────────────────────
-            entities += [
-                ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
-                ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
-                ContentTonieDurationSensor(coordinator, hh_id, ct_id),
-                ContentTonieSalesSensor(coordinator, hh_id, ct_id),
-            ]
-            # ── Binary sensors ────────────────────────────────────────────────
-            entities += [
-                ContentTonieActiveBinarySensor(coordinator, hh_id, ct_id),
-                ContentTonieLockBinarySensor(coordinator, hh_id, ct_id),
-                ContentTonieTranscodingBinarySensor(coordinator, hh_id, ct_id),
-            ]
-            # ── Switch: lock ──────────────────────────────────────────────────
-            entities.append(ContentTonieLockSwitch(coordinator, hh_id, ct_id))
-            # ── Button: remove tune ───────────────────────────────────────────
-            entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
-            # ── Select: language (only shown if language field present) ───────
-            entities.append(ContentTonieLanguageSelect(coordinator, hh_id, ct_id))
-
-    async_add_entities(entities)
 
 
 # ── Base ──────────────────────────────────────────────────────────────────────

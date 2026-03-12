@@ -471,12 +471,24 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # Content Tonies (purchased/assigned figurines)
             try:
                 content_tonies = await self.client.get_content_tonies(hh_id)
-                _LOGGER.debug(
+                _LOGGER.info(
                     "contenttonies for %s: got %d items", hh_id, len(content_tonies)
                 )
                 for ct in content_tonies:
-                    ct_id = ct.get("id", "")
+                    # Try multiple possible ID field names
+                    ct_id = (
+                        ct.get("id")
+                        or ct.get("uid")
+                        or ct.get("figureId")
+                        or ct.get("figurineId")
+                        or ct.get("entityId")
+                        or ""
+                    )
                     if not ct_id:
+                        _LOGGER.warning(
+                            "Skipping content tonie with no ID — available fields: %s",
+                            list(ct.keys()),
+                        )
                         continue
                     # Chapters normalisieren
                     raw_chapters = ct.get("chapters", [])
