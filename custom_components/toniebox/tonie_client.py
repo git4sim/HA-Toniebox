@@ -562,12 +562,24 @@ class TonieCloudClient:
         if isinstance(data, list):
             return data
         if isinstance(data, dict):
-            # Try known wrapper keys — log actual keys if none match
-            for key in ("contenttonies", "data", "items", "results", "tonies"):
+            # Try known wrapper keys (both snake_case and camelCase)
+            for key in (
+                "contenttonies", "contentTonies", "content_tonies",
+                "data", "items", "results", "tonies", "tonie",
+                "figurines", "tonieFigurines",
+            ):
                 if key in data and isinstance(data[key], list):
                     return data[key]
-            _LOGGER.debug(
-                "get_content_tonies: unexpected response shape. "
+            # Fallback: return the first list value found
+            for key, val in data.items():
+                if isinstance(val, list):
+                    _LOGGER.warning(
+                        "get_content_tonies: unexpected response key '%s'. "
+                        "Top-level keys: %s", key, list(data.keys())
+                    )
+                    return val
+            _LOGGER.warning(
+                "get_content_tonies: response contains no list. "
                 "Top-level keys: %s", list(data.keys())
             )
         return []
