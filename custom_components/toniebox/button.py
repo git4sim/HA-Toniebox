@@ -17,10 +17,11 @@ from .device_info import creative_tonie_device_info, toniebox_device_info, house
 class _BtnDesc(ButtonEntityDescription):
     action: str = ""
     args: dict = field(default_factory=dict)
+    disabled_default: bool = False
 
 
 _TONIE_BUTTONS = [
-    _BtnDesc(key="clear",         name="Alle Kapitel löschen",     icon="mdi:delete-sweep",              action="clear"),
+    _BtnDesc(key="clear",         name="Alle Kapitel löschen",     icon="mdi:delete-sweep",              action="clear", disabled_default=True),
     _BtnDesc(key="sort_title",    name="Nach Titel sortieren",      icon="mdi:sort-alphabetical-ascending", action="sort", args={"sort_by": "title"}),
     _BtnDesc(key="sort_filename", name="Nach Dateiname sortieren",  icon="mdi:sort-variant",               action="sort", args={"sort_by": "filename"}),
     _BtnDesc(key="sort_date",     name="Nach Datum sortieren",      icon="mdi:sort-calendar-ascending",    action="sort", args={"sort_by": "date"}),
@@ -87,6 +88,8 @@ class CreativeTonieButton(CoordinatorEntity, ButtonEntity):
         self._t_id = t_id
         self.entity_description = desc
         self._attr_unique_id = f"ct_{t_id}_btn_{desc.key}"
+        if desc.disabled_default:
+            self._attr_entity_registry_enabled_default = False
 
     @property
     def device_info(self) -> dict:

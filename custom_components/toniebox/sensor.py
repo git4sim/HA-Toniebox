@@ -244,6 +244,7 @@ class TonieboxFirmwareSensor(_TbBase):
 class TonieboxLastSeenSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:clock-outline"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
@@ -296,6 +297,7 @@ class TonieboxFeaturesSensor(_TbBase):
     """Comma-separated list of features this Toniebox supports."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:feature-search-outline"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
@@ -316,6 +318,7 @@ class TonieboxRegisteredAtSensor(_TbBase):
     """When this Toniebox was last added to the household (ISO 8601)."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:calendar-clock"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
@@ -331,6 +334,7 @@ class TonieboxTimezoneSensor(_TbBase):
     """The configured timezone of the Toniebox."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:earth-clock"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
@@ -438,6 +442,7 @@ class TonieboxWifiSensor(_TbBase):
     """SSID of the Toniebox Wi-Fi setup network."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:wifi"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
@@ -453,6 +458,7 @@ class CreativeTonieTranscodingSensor(_TonieBase):
     """Whether a Creative Tonie is currently transcoding."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:cog-sync-outline"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
@@ -481,6 +487,7 @@ class CreativeTonieCapacitySensor(_TonieBase):
     _attr_icon = "mdi:clock-plus-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "min"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)

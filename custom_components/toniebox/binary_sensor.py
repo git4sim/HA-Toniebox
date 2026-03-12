@@ -20,7 +20,7 @@ from .content_tonie import (
     DiscActiveBinarySensor,
     DiscLockBinarySensor,
 )
-from .device_info import toniebox_device_info, creative_tonie_device_info
+from .device_info import toniebox_device_info
 
 
 async def async_setup_entry(
@@ -35,13 +35,6 @@ async def async_setup_entry(
                 TonieboxOnlineSensor(coordinator, hh_id, tb_id),
                 TonieboxLEDSensor(coordinator, hh_id, tb_id),
             ]
-        for t_id in hh.get("creativetonies", {}):
-            entities += [
-                TonieTranscodingSensor(coordinator, hh_id, t_id),
-                TonieLiveSensor(coordinator, hh_id, t_id),
-                ToniePrivateSensor(coordinator, hh_id, t_id),
-            ]
-
     # ── Content Tonie binary sensors ─────────────────────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
@@ -130,64 +123,3 @@ class TonieboxLEDSensor(_TbBin):
         return self._tb.get("led", True)
 
 
-# ── Creative Tonie binary sensors ─────────────────────────────────────────────
-
-class _TonieBin(CoordinatorEntity, BinarySensorEntity):
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator, hh_id, t_id):
-        super().__init__(coordinator)
-        self._hh_id = hh_id
-        self._t_id = t_id
-
-    @property
-    def _tonie(self) -> dict:
-        return (
-            self.coordinator.data
-            .get("households", {}).get(self._hh_id, {})
-            .get("creativetonies", {}).get(self._t_id, {})
-        )
-
-    @property
-    def device_info(self) -> dict:
-        return creative_tonie_device_info(self.coordinator, self._hh_id, self._t_id)
-
-
-class TonieTranscodingSensor(_TonieBin):
-    _attr_icon = "mdi:cog-sync"
-    _attr_device_class = BinarySensorDeviceClass.RUNNING
-
-    def __init__(self, coordinator, hh_id, t_id):
-        super().__init__(coordinator, hh_id, t_id)
-        self._attr_unique_id = f"ct_{t_id}_transcoding"
-        self._attr_name = "Wird verarbeitet"
-
-    @property
-    def is_on(self) -> bool:
-        return self._tonie.get("transcoding", False)
-
-
-class TonieLiveSensor(_TonieBin):
-    _attr_icon = "mdi:broadcast"
-
-    def __init__(self, coordinator, hh_id, t_id):
-        super().__init__(coordinator, hh_id, t_id)
-        self._attr_unique_id = f"ct_{t_id}_live_binary"
-        self._attr_name = "Live"
-
-    @property
-    def is_on(self) -> bool:
-        return self._tonie.get("live", False)
-
-
-class ToniePrivateSensor(_TonieBin):
-    _attr_icon = "mdi:lock"
-
-    def __init__(self, coordinator, hh_id, t_id):
-        super().__init__(coordinator, hh_id, t_id)
-        self._attr_unique_id = f"ct_{t_id}_private_binary"
-        self._attr_name = "Privat"
-
-    @property
-    def is_on(self) -> bool:
-        return self._tonie.get("private", False)
