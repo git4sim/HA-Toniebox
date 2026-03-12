@@ -516,7 +516,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     hh_data["contenttonies"][ct_id] = {
                         "id": ct_id,
                         "name": ct.get("name", ct_id),
-                        "image_url": ct.get("imageUrl") or ct.get("image_url"),
+                        "image_url": ct.get("imageUrl") or ct.get("image_url") or ct.get("image"),
                         "household_id": hh_id,
                         # Sales-ID und Serien-Info
                         "sales_id": ct.get("salesId") or ct.get("sales_id"),
@@ -562,7 +562,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     hh_data["discs"][disc_id] = {
                         "id": disc_id,
                         "name": disc.get("name", disc_id),
-                        "image_url": disc.get("imageUrl") or disc.get("image_url"),
+                        "image_url": disc.get("imageUrl") or disc.get("image_url") or disc.get("image"),
                         "household_id": hh_id,
                         "sales_id": disc.get("salesId") or disc.get("sales_id"),
                         "item_id": disc.get("itemId") or disc.get("item_id"),

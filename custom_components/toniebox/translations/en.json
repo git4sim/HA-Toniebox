@@ -124,7 +124,7 @@
       "name": "Accept Invitation",
       "description": "Accept a pending household invitation.",
       "fields": {
-        "invitation_id": { "name": "Invitation ID", "description": "The ID of the invitation (from the 'Offene Einladungen' sensor)." }
+        "invitation_id": { "name": "Invitation ID", "description": "The ID of the invitation (from the 'Pending Invitations' sensor)." }
       }
     },
     "decline_invitation": {

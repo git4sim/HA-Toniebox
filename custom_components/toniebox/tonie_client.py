@@ -5,7 +5,8 @@ Covers ALL documented REST endpoints from https://api.tonie.cloud/v2/doc/
 Authentication: Keycloak OpenID Connect (Resource Owner Password Flow)
   POST https://login.tonies.com/auth/realms/tonies/protocol/openid-connect/token
 
-API Base: https://api.tonie.cloud/v2
+API Base: https://api.prod.tcs.toys/v2
+  (api.tonie.cloud/v2 is a CDN proxy that does NOT expose /contenttonies or /discs)
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import aiohttp
 _LOGGER = logging.getLogger(__name__)
 
 _TOKEN_URL = "https://login.tonies.com/auth/realms/tonies/protocol/openid-connect/token"
-_API_BASE = "https://api.tonie.cloud/v2"
+_API_BASE = "https://api.prod.tcs.toys/v2"
 _CLIENT_ID = "meine-tonies"
 _TOKEN_REFRESH_BUFFER = 60
 
