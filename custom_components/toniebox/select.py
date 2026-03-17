@@ -34,7 +34,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # ledLevel — older boxes only (no tngSettings)
     _TbSelectDesc(
         key="led_level",
-        name="LED-Helligkeit",
+        name="LED Brightness",
         icon="mdi:led-on",
         options=["on", "off", "dimmed"],
         data_key="led_level",
@@ -45,7 +45,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # skippingDirection — applies to boxes WITH tngSettings
     _TbSelectDesc(
         key="skipping_direction",
-        name="Klapps-Richtung",
+        name="Ear Direction for Skipping",
         icon="mdi:gesture-tap",
         options=["right", "left"],
         data_key="skipping_direction",
@@ -56,7 +56,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # tapDirection — older boxes only
     _TbSelectDesc(
         key="tap_direction",
-        name="Klopf-Richtung",
+        name="Tap Direction",
         icon="mdi:gesture-tap",
         options=["left", "right"],
         data_key="tap_direction",
@@ -67,7 +67,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # ageMode — only on boxes with "ageMode" feature
     _TbSelectDesc(
         key="age_mode",
-        name="Altersmodus",
+        name="Age Mode",
         icon="mdi:baby-face-outline",
         options=["1+", "3+"],
         data_key="age_mode",
@@ -78,7 +78,7 @@ _TB_SELECTS: list[_TbSelectDesc] = [
     # language — only on boxes with "language" feature
     _TbSelectDesc(
         key="language",
-        name="Boxsprache",
+        name="Box Language",
         icon="mdi:translate",
         options=["de", "en", "en-us", "fr"],
         data_key="language",

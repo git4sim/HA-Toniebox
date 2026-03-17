@@ -1,16 +1,16 @@
 """Content Tonie platform — one HA device per physical Content Tonie figurine.
 
 Every Content Tonie gets its own device with these entities:
-  - sensor: Aktuell auf Box (which Toniebox it's on right now)
-  - sensor: Kapitel-Anzahl
-  - sensor: Gesamtdauer (min)
-  - sensor: Typ / Serie
-  - binary_sensor: Gerade aktiv (is it currently playing on a Toniebox?)
-  - binary_sensor: Gesperrt (locked to household)
-  - binary_sensor: Transkodierung läuft
-  - switch: Im Haushalt sperren (lock)
-  - button: Tune entfernen
-  - select: Sprache (multi-language Content Tonies only)
+  - sensor: Current Box (which Toniebox it's on right now)
+  - sensor: Chapter Count
+  - sensor: Total Duration (min)
+  - sensor: Series ID
+  - binary_sensor: Currently Active (is it currently playing on a Toniebox?)
+  - binary_sensor: Locked to Household
+  - binary_sensor: Transcoding Active
+  - switch: Lock to Household
+  - button: Remove Tune
+  - select: Language (multi-language Content Tonies only)
 
 This allows per-Content-Tonie automations, e.g.:
   "When 'Benjamin Blümchen' is placed on a box → turn on bedroom light"
@@ -64,11 +64,11 @@ class _CTBase(CoordinatorEntity):
 class ContentTonieCurrentBoxSensor(_CTBase, SensorEntity):
     """Which Toniebox this Content Tonie is currently placed on (ID or name)."""
     _attr_icon = "mdi:speaker-wireless"
+    _attr_translation_key = "current_box"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_current_box"
-        self._attr_name = "Aktuelle Box"
 
     @property
     def native_value(self) -> str | None:
@@ -106,11 +106,11 @@ class ContentTonieChapterCountSensor(_CTBase, SensorEntity):
     """Number of chapters on this Content Tonie."""
     _attr_icon = "mdi:format-list-numbered"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "chapter_count"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_chapter_count"
-        self._attr_name = "Kapitel"
 
     @property
     def native_value(self) -> int:
@@ -130,11 +130,11 @@ class ContentTonieDurationSensor(_CTBase, SensorEntity):
     _attr_icon = "mdi:timer-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "min"
+    _attr_translation_key = "total_duration"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_duration"
-        self._attr_name = "Gesamtdauer"
 
     @property
     def native_value(self) -> float | None:
@@ -148,11 +148,11 @@ class ContentTonieDurationSensor(_CTBase, SensorEntity):
 class ContentTonieSalesSensor(_CTBase, SensorEntity):
     """Sales/series ID of this Content Tonie — useful for identifying the content."""
     _attr_icon = "mdi:barcode"
+    _attr_translation_key = "sales_id"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_sales_id"
-        self._attr_name = "Serien-ID"
 
     @property
     def native_value(self) -> str | None:
@@ -173,11 +173,11 @@ class ContentTonieActiveBinarySensor(_CTBase, BinarySensorEntity):
     """True when this Content Tonie is currently placed on a Toniebox in this household."""
     _attr_icon = "mdi:play-circle-outline"
     _attr_device_class = None
+    _attr_translation_key = "currently_active"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_active"
-        self._attr_name = "Gerade aktiv"
 
     @property
     def is_on(self) -> bool:
@@ -203,11 +203,11 @@ class ContentTonieActiveBinarySensor(_CTBase, BinarySensorEntity):
 class ContentTonieLockBinarySensor(_CTBase, BinarySensorEntity):
     """True when this Content Tonie is locked to the current household."""
     _attr_icon = "mdi:lock"
+    _attr_translation_key = "locked_household"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_locked_bs"
-        self._attr_name = "Im Haushalt gesperrt"
 
     @property
     def is_on(self) -> bool:
@@ -217,11 +217,11 @@ class ContentTonieLockBinarySensor(_CTBase, BinarySensorEntity):
 class ContentTonieTranscodingBinarySensor(_CTBase, BinarySensorEntity):
     """True while the Content Tonie is being transcoded."""
     _attr_icon = "mdi:cog-sync-outline"
+    _attr_translation_key = "transcoding_active"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_transcoding"
-        self._attr_name = "Transkodierung aktiv"
 
     @property
     def is_on(self) -> bool:
@@ -233,11 +233,11 @@ class ContentTonieTranscodingBinarySensor(_CTBase, BinarySensorEntity):
 class ContentTonieLockSwitch(_CTBase, SwitchEntity):
     """Lock/unlock this Content Tonie to the current household."""
     _attr_icon = "mdi:lock-outline"
+    _attr_translation_key = "lock_household"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_lock_switch"
-        self._attr_name = "Im Haushalt sperren"
         self._optimistic_state: bool | None = None
 
     @callback
@@ -274,11 +274,11 @@ class ContentTonieTuneRemoveButton(_CTBase, ButtonEntity):
     """Remove the currently active Tune from this Content Tonie."""
     _attr_icon = "mdi:music-off"
     _attr_entity_registry_enabled_default = False  # only relevant when a Tune is active
+    _attr_translation_key = "remove_tune"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_remove_tune"
-        self._attr_name = "Tune entfernen"
 
     async def async_press(self) -> None:
         await self.coordinator.client.delete_tonie_tune(self._hh_id, self._ct_id)
@@ -293,11 +293,11 @@ class ContentTonieLanguageSelect(_CTBase, SelectEntity):
     _attr_options = _LANGUAGES
     # Hidden by default — only relevant for multi-language Content Tonies
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "language"
 
     def __init__(self, coordinator, hh_id, ct_id):
         super().__init__(coordinator, hh_id, ct_id)
         self._attr_unique_id = f"content_{ct_id}_language"
-        self._attr_name = "Sprache"
         self._optimistic: str | None = None
 
     @callback
@@ -353,11 +353,11 @@ class _DiscBase(CoordinatorEntity):
 class DiscCurrentBoxSensor(_DiscBase, SensorEntity):
     """Which Toniebox this Content Disc is currently placed on."""
     _attr_icon = "mdi:speaker-wireless"
+    _attr_translation_key = "current_box"
 
     def __init__(self, coordinator, hh_id, disc_id):
         super().__init__(coordinator, hh_id, disc_id)
         self._attr_unique_id = f"disc_{disc_id}_current_box"
-        self._attr_name = "Aktuelle Box"
 
     @property
     def native_value(self) -> str | None:
@@ -384,11 +384,11 @@ class DiscCurrentBoxSensor(_DiscBase, SensorEntity):
 class DiscSalesSensor(_DiscBase, SensorEntity):
     """Sales/series ID of this Content Disc."""
     _attr_icon = "mdi:barcode"
+    _attr_translation_key = "sales_id"
 
     def __init__(self, coordinator, hh_id, disc_id):
         super().__init__(coordinator, hh_id, disc_id)
         self._attr_unique_id = f"disc_{disc_id}_sales_id"
-        self._attr_name = "Serien-ID"
 
     @property
     def native_value(self) -> str | None:
@@ -407,11 +407,11 @@ class DiscActiveBinarySensor(_DiscBase, BinarySensorEntity):
     """True when this Content Disc is currently placed on a Toniebox."""
     _attr_icon = "mdi:play-circle-outline"
     _attr_device_class = None
+    _attr_translation_key = "currently_active"
 
     def __init__(self, coordinator, hh_id, disc_id):
         super().__init__(coordinator, hh_id, disc_id)
         self._attr_unique_id = f"disc_{disc_id}_active"
-        self._attr_name = "Gerade aktiv"
 
     @property
     def is_on(self) -> bool:
@@ -433,11 +433,11 @@ class DiscActiveBinarySensor(_DiscBase, BinarySensorEntity):
 class DiscLockBinarySensor(_DiscBase, BinarySensorEntity):
     """True when this Content Disc is locked to the current household."""
     _attr_icon = "mdi:lock"
+    _attr_translation_key = "locked_household"
 
     def __init__(self, coordinator, hh_id, disc_id):
         super().__init__(coordinator, hh_id, disc_id)
         self._attr_unique_id = f"disc_{disc_id}_locked_bs"
-        self._attr_name = "Im Haushalt gesperrt"
 
     @property
     def is_on(self) -> bool:
@@ -447,11 +447,11 @@ class DiscLockBinarySensor(_DiscBase, BinarySensorEntity):
 class DiscLockSwitch(_DiscBase, SwitchEntity):
     """Lock/unlock this Content Disc to the current household."""
     _attr_icon = "mdi:lock-outline"
+    _attr_translation_key = "lock_household"
 
     def __init__(self, coordinator, hh_id, disc_id):
         super().__init__(coordinator, hh_id, disc_id)
         self._attr_unique_id = f"disc_{disc_id}_lock_switch"
-        self._attr_name = "Im Haushalt sperren"
         self._optimistic_state: bool | None = None
 
     @callback

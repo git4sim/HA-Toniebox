@@ -21,11 +21,11 @@ class _BtnDesc(ButtonEntityDescription):
 
 
 _TONIE_BUTTONS = [
-    _BtnDesc(key="clear",         name="Alle Kapitel löschen",     icon="mdi:delete-sweep",              action="clear", disabled_default=True),
-    _BtnDesc(key="sort_title",    name="Nach Titel sortieren",      icon="mdi:sort-alphabetical-ascending", action="sort", args={"sort_by": "title"}),
-    _BtnDesc(key="sort_filename", name="Nach Dateiname sortieren",  icon="mdi:sort-variant",               action="sort", args={"sort_by": "filename"}),
-    _BtnDesc(key="sort_date",     name="Nach Datum sortieren",      icon="mdi:sort-calendar-ascending",    action="sort", args={"sort_by": "date"}),
-    _BtnDesc(key="refresh",       name="Aktualisieren",             icon="mdi:refresh",                    action="refresh"),
+    _BtnDesc(key="clear",         name="Clear All Chapters",  translation_key="clear_chapters",  icon="mdi:delete-sweep",               action="clear", disabled_default=True),
+    _BtnDesc(key="sort_title",    name="Sort by Title",        translation_key="sort_by_title",    icon="mdi:sort-alphabetical-ascending", action="sort", args={"sort_by": "title"}),
+    _BtnDesc(key="sort_filename", name="Sort by Filename",     translation_key="sort_by_filename", icon="mdi:sort-variant",               action="sort", args={"sort_by": "filename"}),
+    _BtnDesc(key="sort_date",     name="Sort by Date",         translation_key="sort_by_date",     icon="mdi:sort-calendar-ascending",    action="sort", args={"sort_by": "date"}),
+    _BtnDesc(key="refresh",       name="Refresh",              translation_key="refresh",          icon="mdi:refresh",                    action="refresh"),
 ]
 
 
@@ -61,7 +61,7 @@ async def async_setup_entry(
 
 class HouseholdRefreshButton(CoordinatorEntity, ButtonEntity):
     _attr_has_entity_name = True
-    _attr_name = "Alle aktualisieren"
+    _attr_translation_key = "refresh_all"
     _attr_icon = "mdi:cloud-sync"
 
     def __init__(self, coordinator, hh_id: str) -> None:
@@ -109,7 +109,7 @@ class CreativeTonieButton(CoordinatorEntity, ButtonEntity):
 
 class TonieboxRefreshButton(CoordinatorEntity, ButtonEntity):
     _attr_has_entity_name = True
-    _attr_name = "Aktualisieren"
+    _attr_translation_key = "refresh"
     _attr_icon = "mdi:refresh"
 
     def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
@@ -131,7 +131,7 @@ class TonieboxRefreshButton(CoordinatorEntity, ButtonEntity):
 class TonieboxResetButton(CoordinatorEntity, ButtonEntity):
     """Resets all Toniebox settings to factory defaults (except name & language)."""
     _attr_has_entity_name = True
-    _attr_name = "Auf Werkseinstellungen zurücksetzen"
+    _attr_translation_key = "factory_reset"
     _attr_icon = "mdi:restore"
     _attr_entity_registry_enabled_default = False  # deliberately hidden by default — destructive action
 
