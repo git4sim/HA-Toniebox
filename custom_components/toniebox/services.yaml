@@ -1,29 +1,29 @@
 clear_chapters:
-  name: Kapitel löschen
-  description: Entfernt alle Kapitel von einem Creative Tonie.
+  name: Clear Chapters
+  description: Remove all chapters from a Creative Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
 
 sort_chapters:
-  name: Kapitel sortieren
-  description: Sortiert die Kapitel auf einem Creative Tonie.
+  name: Sort Chapters
+  description: Sort the chapters on a Creative Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     sort_by:
-      name: Sortierung
-      description: Wie soll sortiert werden?
+      name: Sort By
+      description: Sort chapters by title, filename, or date.
       default: title
       selector:
         select:
@@ -33,43 +33,43 @@ sort_chapters:
             - date
 
 remove_chapter:
-  name: Kapitel entfernen
-  description: Entfernt ein einzelnes Kapitel anhand seiner ID.
+  name: Remove Chapter
+  description: Remove a single chapter by its ID.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     chapter_id:
-      name: Kapitel-ID
-      description: Die ID des zu entfernenden Kapitels (aus dem Attribut 'chapters').
+      name: Chapter ID
+      description: The ID of the chapter to remove (from the 'chapters' attribute).
       required: true
       selector:
         text:
 
 move_chapter:
-  name: Kapitel verschieben
-  description: Verschiebt ein Kapitel auf einem Creative Tonie eine Position nach oben oder unten.
+  name: Move Chapter
+  description: Move a chapter one position up or down on a Creative Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     chapter_id:
-      name: Kapitel-ID
-      description: Die ID des zu verschiebenden Kapitels (aus dem Attribut 'chapters').
+      name: Chapter ID
+      description: The ID of the chapter to move (from the 'chapters' attribute).
       required: true
       selector:
         text:
     direction:
-      name: Richtung
-      description: "'up' = nach vorne, 'down' = nach hinten."
+      name: Direction
+      description: "'up' moves earlier, 'down' moves later in the list."
       default: up
       selector:
         select:
@@ -78,150 +78,150 @@ move_chapter:
             - down
 
 upload_audio:
-  name: Audio hochladen
+  name: Upload Audio
   description: >
-    Lädt eine lokale Audiodatei hoch und fügt sie als neues Kapitel zu einem
-    Creative Tonie hinzu. Die Datei muss vom Home Assistant Host aus erreichbar
-    sein (z.B. /config/tonie_audio/maerchen.mp3).
-    Unterstützte Formate: mp3, ogg, wav, flac, m4a, aac, opus.
+    Upload a local audio file and add it as a new chapter to a Creative Tonie.
+    The file must be accessible from the Home Assistant host
+    (e.g. /config/tonie_audio/story.mp3).
+    Supported formats: mp3, ogg, wav, flac, m4a, aac, opus.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     file_path:
-      name: Dateipfad
-      description: Absoluter Pfad zur Audiodatei auf dem HA-Host.
+      name: File Path
+      description: Absolute path to the audio file on the HA host.
       required: true
       selector:
         text:
     title:
-      name: Kapitel-Titel
-      description: Titel des neuen Kapitels. Standard ist der Dateiname ohne Erweiterung.
+      name: Chapter Title
+      description: Title of the new chapter. Defaults to the filename without extension.
       required: false
       selector:
         text:
 
 rename_tonie:
-  name: Tonie umbenennen
-  description: Benennt einen Creative Tonie um.
+  name: Rename Tonie
+  description: Rename a Creative Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     name:
-      name: Neuer Name
-      description: Der neue Name des Tonie.
+      name: New Name
+      description: The new name for the Tonie.
       required: true
       selector:
         text:
 
 rename_toniebox:
-  name: Toniebox umbenennen
-  description: Benennt eine Toniebox um.
+  name: Rename Toniebox
+  description: Rename a Toniebox device.
   fields:
     entity_id:
-      name: Entity
-      description: Das Toniebox Entity.
+      name: Toniebox
+      description: The media_player entity of the Toniebox.
       required: true
       selector:
         entity:
           domain: media_player
     name:
-      name: Neuer Name
-      description: Der neue Name der Toniebox.
+      name: New Name
+      description: The new name for the Toniebox.
       required: true
       selector:
         text:
 
 redeem_content_token:
-  name: Content-Token einlösen
-  description: Löst einen kostenlosen Content-Token für einen Creative Tonie ein.
+  name: Redeem Content Token
+  description: Redeem a free content token onto a Creative Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Creative Tonie Media Player Entity.
+      name: Creative Tonie
+      description: The media_player entity of the target Creative Tonie.
       required: true
       selector:
         entity:
           domain: media_player
     token:
       name: Token
-      description: Der einzulösende Content-Token.
+      description: The content token to redeem.
       required: true
       selector:
         text:
 
 apply_tune:
-  name: Tune anwenden
-  description: Wendet einen gekauften Tune auf einen Tonie an.
+  name: Apply Tune
+  description: Apply a purchased Tune to a Tonie.
   fields:
     entity_id:
-      name: Entity
-      description: Das Tonie Entity.
+      name: Tonie
+      description: The Tonie media_player entity.
       required: true
       selector:
         entity:
           domain: media_player
     tune_id:
-      name: Tune-ID
-      description: Die ID des anzuwendenden Tune.
+      name: Tune ID
+      description: The ID of the tune to apply.
       required: true
       selector:
         text:
 
 remove_tune:
-  name: Tune entfernen
-  description: Entfernt den aktiven Tune von einem Tonie (stellt Originalinhalt wieder her).
+  name: Remove Tune
+  description: Remove the active Tune from a Tonie (restores original content).
   fields:
     entity_id:
-      name: Entity
-      description: Das Tonie Entity.
+      name: Tonie
+      description: The Tonie media_player entity.
       required: true
       selector:
         entity:
           domain: media_player
 
 redeem_voucher:
-  name: Gutschein einlösen
-  description: Löst einen Tunes-Gutscheincode ein.
+  name: Redeem Voucher
+  description: Redeem a Tunes voucher code.
   fields:
     code:
-      name: Gutscheincode
-      description: Der einzulösende Gutscheincode.
+      name: Voucher Code
+      description: The voucher code to redeem.
       required: true
       selector:
         text:
 
 dismiss_all_notifications:
-  name: Alle Benachrichtigungen löschen
-  description: Löscht alle Toniebox-Account-Benachrichtigungen.
+  name: Dismiss All Notifications
+  description: Clear all Toniebox account notifications.
 
 accept_invitation:
-  name: Einladung annehmen
-  description: Nimmt eine ausstehende Haushalt-Einladung an.
+  name: Accept Invitation
+  description: Accept a pending household invitation.
   fields:
     invitation_id:
-      name: Einladungs-ID
-      description: Die ID der Einladung (aus dem Sensor 'Offene Einladungen').
+      name: Invitation ID
+      description: The ID of the invitation (from the 'Pending Invitations' sensor).
       required: true
       selector:
         text:
 
 decline_invitation:
-  name: Einladung ablehnen
-  description: Lehnt eine ausstehende Haushalt-Einladung ab.
+  name: Decline Invitation
+  description: Decline a pending household invitation.
   fields:
     invitation_id:
-      name: Einladungs-ID
-      description: Die ID der Einladung (aus dem Sensor 'Offene Einladungen').
+      name: Invitation ID
+      description: The ID of the invitation (from the 'Pending Invitations' sensor).
       required: true
       selector:
         text:
