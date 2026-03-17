@@ -37,7 +37,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     # ── TNG-generation (lightring, bedtime) ───────────────────────────────────
     _TbNumberDesc(
         key="lightring_brightness",
-        name="Helligkeit Ring",
+        name="Ring Brightness",
         icon="mdi:brightness-5",
         native_min_value=0, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -48,7 +48,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_lightring_brightness",
-        name="Schlafenszeit Helligkeit Ring",
+        name="Bedtime Ring Brightness",
         icon="mdi:brightness-3",
         native_min_value=0, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -59,7 +59,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_max_volume",
-        name="Schlafenszeit Max. Lautstärke Box",
+        name="Bedtime Max. Box Volume",
         icon="mdi:volume-low",
         native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -70,7 +70,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="bedtime_max_headphone_volume",
-        name="Schlafenszeit Max. Kopfhörerlautstärke",
+        name="Bedtime Max. Headphone Volume",
         icon="mdi:headphones",
         native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
@@ -82,7 +82,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     # ── Classic / all boxes (volume enum: 25/50/75/100) ───────────────────────
     _TbNumberDesc(
         key="max_volume",
-        name="Max. Lautstärke Box",
+        name="Max. Box Volume",
         icon="mdi:volume-high",
         native_min_value=25, native_max_value=100, native_step=25,
         native_unit_of_measurement="%",
@@ -92,7 +92,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
     ),
     _TbNumberDesc(
         key="max_headphone_volume",
-        name="Max. Kopfhörerlautstärke",
+        name="Max. Headphone Volume",
         icon="mdi:headphones",
         native_min_value=25, native_max_value=100, native_step=25,
         native_unit_of_measurement="%",

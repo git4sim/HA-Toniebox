@@ -33,15 +33,15 @@ async def async_setup_entry(
         # ── Household sensors ─────────────────────────────────────────────────
         entities += [
             HouseholdSensor(
-                coordinator, hh_id, "account", "Account", "mdi:account",
-                lambda d: d.get("me", {}).get("email", "unbekannt"),
+                coordinator, hh_id, "account", "mdi:account",
+                lambda d: d.get("me", {}).get("email", "unknown"),
             ),
-            HouseholdCountSensor(coordinator, hh_id, "tonies",        "Creative Tonies",  "mdi:teddy-bear",         "creativetonies"),
-            HouseholdCountSensor(coordinator, hh_id, "content_tonies","Content Tonies",   "mdi:music-box-multiple", "contenttonies"),
-            HouseholdCountSensor(coordinator, hh_id, "discs",         "Content Discs",    "mdi:disc",               "discs"),
-            HouseholdCountSensor(coordinator, hh_id, "tonieboxes",    "Tonieboxen",        "mdi:speaker",            "tonieboxes"),
-            HouseholdCountSensor(coordinator, hh_id, "children",      "Kinder",            "mdi:account-child",      "children"),
-            HouseholdCountSensor(coordinator, hh_id, "members",       "Mitglieder",        "mdi:account-group",      "memberships"),
+            HouseholdCountSensor(coordinator, hh_id, "tonies",        "mdi:teddy-bear",         "creativetonies"),
+            HouseholdCountSensor(coordinator, hh_id, "content_tonies","mdi:music-box-multiple", "contenttonies"),
+            HouseholdCountSensor(coordinator, hh_id, "discs",         "mdi:disc",               "discs"),
+            HouseholdCountSensor(coordinator, hh_id, "tonieboxes",    "mdi:speaker",            "tonieboxes"),
+            HouseholdCountSensor(coordinator, hh_id, "children",      "mdi:account-child",      "children"),
+            HouseholdCountSensor(coordinator, hh_id, "members",       "mdi:account-group",      "memberships"),
             HouseholdNotifSensor(coordinator, hh_id),
             HouseholdInviteSensor(coordinator, hh_id),
         ]
@@ -110,12 +110,12 @@ class _Base(CoordinatorEntity, SensorEntity):
 class HouseholdSensor(_Base):
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, hh_id, key, name, icon, value_fn):
+    def __init__(self, coordinator, hh_id, key, icon, value_fn):
         super().__init__(coordinator)
         self._hh_id = hh_id
         self._value_fn = value_fn
         self._attr_unique_id = f"hh_{hh_id}_{key}"
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_icon = icon
 
     @property
@@ -131,12 +131,12 @@ class HouseholdCountSensor(_Base):
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, hh_id, key, name, icon, data_key):
+    def __init__(self, coordinator, hh_id, key, icon, data_key):
         super().__init__(coordinator)
         self._hh_id = hh_id
         self._data_key = data_key
         self._attr_unique_id = f"hh_{hh_id}_{key}_count"
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_icon = icon
 
     @property
@@ -157,12 +157,12 @@ class HouseholdNotifSensor(_Base):
     _attr_has_entity_name = True
     _attr_icon = "mdi:bell"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "notifications"
 
     def __init__(self, coordinator, hh_id):
         super().__init__(coordinator)
         self._hh_id = hh_id
         self._attr_unique_id = f"hh_{hh_id}_notifications"
-        self._attr_name = "Benachrichtigungen"
 
     @property
     def device_info(self):
@@ -181,12 +181,12 @@ class HouseholdInviteSensor(_Base):
     _attr_has_entity_name = True
     _attr_icon = "mdi:email-plus"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "pending_invitations"
 
     def __init__(self, coordinator, hh_id):
         super().__init__(coordinator)
         self._hh_id = hh_id
         self._attr_unique_id = f"hh_{hh_id}_invitations"
-        self._attr_name = "Offene Einladungen"
 
     @property
     def device_info(self):
@@ -217,21 +217,19 @@ class _TbBase(_Base):
 class TonieboxFirmwareSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:chip"
+    _attr_translation_key = "firmware"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_firmware"
-        self._attr_name = "Firmware"
 
     @property
     def native_value(self):
-        # New API field: firmwareVersion (string directly)
         ver = self._tb.get("firmware_version")
         if ver:
             return ver
-        # Legacy fallback: firmware dict
         fw = self._tb.get("firmware", {})
-        return fw.get("version") or fw.get("toniesVersion") or "unbekannt"
+        return fw.get("version") or fw.get("toniesVersion") or "unknown"
 
     @property
     def extra_state_attributes(self):
@@ -245,11 +243,11 @@ class TonieboxLastSeenSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:clock-outline"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "last_seen"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_last_seen"
-        self._attr_name = "Zuletzt gesehen"
 
     @property
     def native_value(self):
@@ -260,11 +258,11 @@ class TonieboxOnlineStateSensor(_TbBase):
     """Reports the API onlineState string: connected / offline / unknown / unsupported."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:cloud-check-outline"
+    _attr_translation_key = "online_status"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_online_state"
-        self._attr_name = "Online-Status"
 
     @property
     def native_value(self):
@@ -275,11 +273,11 @@ class TonieboxGenerationSensor(_TbBase):
     """Toniebox generation: classic / rosered / tng."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:information-outline"
+    _attr_translation_key = "generation"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_generation"
-        self._attr_name = "Generation"
 
     @property
     def native_value(self):
@@ -298,16 +296,16 @@ class TonieboxFeaturesSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:feature-search-outline"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "features"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_features"
-        self._attr_name = "Features"
 
     @property
     def native_value(self):
         features = self._tb.get("features", [])
-        return ", ".join(features) if features else "keine"
+        return ", ".join(features) if features else "none"
 
     @property
     def extra_state_attributes(self):
@@ -319,11 +317,11 @@ class TonieboxRegisteredAtSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:calendar-clock"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "registered_at"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_registered_at"
-        self._attr_name = "Hinzugefügt am"
 
     @property
     def native_value(self):
@@ -335,11 +333,11 @@ class TonieboxTimezoneSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:earth-clock"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "timezone"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_timezone"
-        self._attr_name = "Zeitzone"
 
     @property
     def native_value(self):
@@ -350,11 +348,11 @@ class TonieboxBedtimeColorSensor(_TbBase):
     """Bedtime lightring color (tng only), shown as hex string."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:palette"
+    _attr_translation_key = "bedtime_color"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_bedtime_color"
-        self._attr_name = "Schlafenszeit-Farbe"
 
     @property
     def native_value(self):
@@ -382,11 +380,11 @@ class TonieChapterCountSensor(_TonieBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:format-list-numbered"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_translation_key = "chapter_count"
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_chapter_count"
-        self._attr_name = "Kapitel"
 
     @property
     def native_value(self):
@@ -407,11 +405,11 @@ class TonieDurationSensor(_TonieBase):
     _attr_icon = "mdi:timer-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "min"
+    _attr_translation_key = "total_duration"
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_duration"
-        self._attr_name = "Gesamtdauer"
 
     @property
     def native_value(self):
@@ -422,20 +420,20 @@ class TonieboxSettingsAppliedSensor(_TbBase):
     """Whether the Toniebox has received the latest settings update."""
     _attr_has_entity_name = True
     _attr_icon = "mdi:check-circle-outline"
+    _attr_translation_key = "settings_applied"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_settings_applied"
-        self._attr_name = "Einstellungen übertragen"
 
     @property
     def native_value(self):
         val = self._tb.get("settings_applied")
         if val is True:
-            return "ja"
+            return "yes"
         if val is False:
-            return "nein"
-        return "unbekannt"
+            return "no"
+        return "unknown"
 
 
 class TonieboxWifiSensor(_TbBase):
@@ -443,11 +441,11 @@ class TonieboxWifiSensor(_TbBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:wifi"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "setup_wifi"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_ssid"
-        self._attr_name = "Setup-WLAN (SSID)"
 
     @property
     def native_value(self):
@@ -459,15 +457,15 @@ class CreativeTonieTranscodingSensor(_TonieBase):
     _attr_has_entity_name = True
     _attr_icon = "mdi:cog-sync-outline"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "transcoding"
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_transcoding"
-        self._attr_name = "Transkodierung"
 
     @property
     def native_value(self):
-        return "aktiv" if self._tonie.get("transcoding") else "inaktiv"
+        return "active" if self._tonie.get("transcoding") else "inactive"
 
     @property
     def extra_state_attributes(self):
@@ -488,11 +486,11 @@ class CreativeTonieCapacitySensor(_TonieBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "min"
     _attr_entity_registry_enabled_default = False
+    _attr_translation_key = "free_minutes"
 
     def __init__(self, coordinator, hh_id, t_id):
         super().__init__(coordinator, hh_id, t_id)
         self._attr_unique_id = f"ct_{t_id}_free_minutes"
-        self._attr_name = "Freie Zeit"
 
     @property
     def native_value(self):

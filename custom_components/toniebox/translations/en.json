@@ -137,7 +137,32 @@
   },
   "entity": {
     "sensor": {
-      "current_tonie": {"name": "Current Figure"}
+      "current_tonie": {"name": "Current Figure"},
+      "account": {"name": "Account"},
+      "tonies": {"name": "Creative Tonies"},
+      "content_tonies": {"name": "Content Tonies"},
+      "discs": {"name": "Content Discs"},
+      "tonieboxes": {"name": "Tonieboxes"},
+      "children": {"name": "Children"},
+      "members": {"name": "Members"},
+      "notifications": {"name": "Notifications"},
+      "pending_invitations": {"name": "Pending Invitations"},
+      "firmware": {"name": "Firmware"},
+      "last_seen": {"name": "Last Seen"},
+      "online_status": {"name": "Online Status"},
+      "generation": {"name": "Generation"},
+      "features": {"name": "Features"},
+      "registered_at": {"name": "Registered At"},
+      "timezone": {"name": "Timezone"},
+      "bedtime_color": {"name": "Bedtime Color"},
+      "chapter_count": {"name": "Chapters"},
+      "total_duration": {"name": "Total Duration"},
+      "settings_applied": {"name": "Settings Applied"},
+      "setup_wifi": {"name": "Setup Wi-Fi (SSID)"},
+      "transcoding": {"name": "Transcoding"},
+      "free_minutes": {"name": "Free Time"},
+      "current_box": {"name": "Current Box"},
+      "sales_id": {"name": "Series ID"}
     },
     "number": {
       "lightring_brightness": {"name": "Ring Brightness"},
@@ -173,7 +198,25 @@
       "offline_mode": {"name": "Offline Mode"},
       "accelerometer": {"name": "Tilt & Tap"},
       "private": {"name": "Play in This Household Only"},
-      "live": {"name": "Live Mode"}
+      "live": {"name": "Live Mode"},
+      "lock_household": {"name": "Lock to Household"}
+    },
+    "button": {
+      "refresh_all": {"name": "Refresh All"},
+      "clear_chapters": {"name": "Clear All Chapters"},
+      "sort_by_title": {"name": "Sort by Title"},
+      "sort_by_filename": {"name": "Sort by Filename"},
+      "sort_by_date": {"name": "Sort by Date"},
+      "refresh": {"name": "Refresh"},
+      "factory_reset": {"name": "Factory Reset"},
+      "remove_tune": {"name": "Remove Tune"}
+    },
+    "binary_sensor": {
+      "online": {"name": "Online"},
+      "led_active": {"name": "LED Active"},
+      "currently_active": {"name": "Currently Active"},
+      "locked_household": {"name": "Locked to Household"},
+      "transcoding_active": {"name": "Transcoding Active"}
     }
   }
 }

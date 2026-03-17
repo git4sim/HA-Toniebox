@@ -137,7 +137,32 @@
   },
   "entity": {
     "sensor": {
-      "current_tonie": {"name": "Aktuelle Figur"}
+      "current_tonie": {"name": "Aktuelle Figur"},
+      "account": {"name": "Konto"},
+      "tonies": {"name": "Kreativ-Tonies"},
+      "content_tonies": {"name": "Content Tonies"},
+      "discs": {"name": "Content Discs"},
+      "tonieboxes": {"name": "Tonieboxen"},
+      "children": {"name": "Kinder"},
+      "members": {"name": "Mitglieder"},
+      "notifications": {"name": "Benachrichtigungen"},
+      "pending_invitations": {"name": "Offene Einladungen"},
+      "firmware": {"name": "Firmware"},
+      "last_seen": {"name": "Zuletzt gesehen"},
+      "online_status": {"name": "Online-Status"},
+      "generation": {"name": "Generation"},
+      "features": {"name": "Features"},
+      "registered_at": {"name": "Hinzugefügt am"},
+      "timezone": {"name": "Zeitzone"},
+      "bedtime_color": {"name": "Schlafenszeit-Farbe"},
+      "chapter_count": {"name": "Kapitel"},
+      "total_duration": {"name": "Gesamtdauer"},
+      "settings_applied": {"name": "Einstellungen übertragen"},
+      "setup_wifi": {"name": "Setup-WLAN (SSID)"},
+      "transcoding": {"name": "Transkodierung"},
+      "free_minutes": {"name": "Freie Zeit"},
+      "current_box": {"name": "Aktuelle Box"},
+      "sales_id": {"name": "Serien-ID"}
     },
     "number": {
       "lightring_brightness": {"name": "Helligkeit Ring"},
@@ -168,12 +193,30 @@
       "sort_select": {"name": "Kapitel sortieren"}
     },
     "switch": {
-      "skipping": {"name": "Klappsen zum überspringen"},
+      "skipping": {"name": "Klappsen zum Überspringen"},
       "scrubbing": {"name": "Neigen zum Zurück- und Vorspulen"},
       "offline_mode": {"name": "Offline-Modus"},
       "accelerometer": {"name": "Kippen & Klopfen"},
       "private": {"name": "Nur in diesem Haushalt abspielen"},
-      "live": {"name": "Live-Funktion"}
+      "live": {"name": "Live-Funktion"},
+      "lock_household": {"name": "Im Haushalt sperren"}
+    },
+    "button": {
+      "refresh_all": {"name": "Alle aktualisieren"},
+      "clear_chapters": {"name": "Alle Kapitel löschen"},
+      "sort_by_title": {"name": "Nach Titel sortieren"},
+      "sort_by_filename": {"name": "Nach Dateiname sortieren"},
+      "sort_by_date": {"name": "Nach Datum sortieren"},
+      "refresh": {"name": "Aktualisieren"},
+      "factory_reset": {"name": "Auf Werkseinstellungen zurücksetzen"},
+      "remove_tune": {"name": "Tune entfernen"}
+    },
+    "binary_sensor": {
+      "online": {"name": "Online"},
+      "led_active": {"name": "LED aktiv"},
+      "currently_active": {"name": "Gerade aktiv"},
+      "locked_household": {"name": "Im Haushalt gesperrt"},
+      "transcoding_active": {"name": "Transkodierung aktiv"}
     }
   }
 }

@@ -85,10 +85,11 @@ class TonieboxOnlineSensor(_TbBin):
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_icon = "mdi:wifi"
 
+    _attr_translation_key = "online"
+
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_online"
-        self._attr_name = "Online"
 
     @property
     def is_on(self) -> bool:
@@ -112,11 +113,11 @@ class TonieboxOnlineSensor(_TbBin):
 
 class TonieboxLEDSensor(_TbBin):
     _attr_icon = "mdi:led-on"
+    _attr_translation_key = "led_active"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_led_binary"
-        self._attr_name = "LED aktiv"
 
     @property
     def is_on(self) -> bool:
