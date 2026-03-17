@@ -1,21 +1,22 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
 
 jobs:
   release:
     name: Prepare Release ZIP
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Bump version in manifest.json
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"  # strip leading 'v'
           jq --arg v "$VERSION" '.version = $v' \
             custom_components/toniebox/manifest.json > /tmp/manifest.json
@@ -28,9 +29,16 @@ jobs:
           zip -r ../toniebox.zip toniebox/ -x "**/__pycache__/*" -x "**/*.pyc"
           cd ..
 
-      - name: Upload ZIP to release
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: toniebox.zip
+          body: |
+            ## Toniebox Integration ${{ github.ref_name }}
+
+            ### Installation
+            Download `toniebox.zip`, extract to `config/custom_components/`, restart HA.
+
+            Or use [HACS](https://hacs.xyz) for automatic updates.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
