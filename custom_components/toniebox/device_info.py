@@ -11,6 +11,8 @@ All device_info dicts call these helpers so the hierarchy is defined in ONE plac
 """
 from __future__ import annotations
 
+from homeassistant.helpers import device_registry as dr
+
 from .const import DOMAIN
 
 
@@ -34,14 +36,24 @@ def toniebox_device_info(coordinator, hh_id: str, tb_id: str) -> dict:
         .get("tonieboxes", {}).get(tb_id, {})
     )
     fw = tb.get("firmware", {})
-    return {
+    mac = tb.get("mac_address")
+    sw_version = (
+        tb.get("firmware_version")
+        or fw.get("version")
+        or fw.get("toniesVersion")
+    )
+    info = {
         "identifiers": {(DOMAIN, f"tb_{tb_id}")},
         "name": tb.get("name", "Toniebox"),
         "manufacturer": "Boxine GmbH",
         "model": "Toniebox",
-        "sw_version": fw.get("version") or fw.get("toniesVersion"),
+        "serial_number": tb_id,
+        "sw_version": sw_version,
         "via_device": (DOMAIN, f"hh_{hh_id}"),
     }
+    if mac:
+        info["connections"] = {(dr.CONNECTION_NETWORK_MAC, mac.lower())}
+    return info
 
 
 def creative_tonie_device_info(coordinator, hh_id: str, t_id: str) -> dict:

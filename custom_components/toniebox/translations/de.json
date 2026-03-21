@@ -162,7 +162,10 @@
       "transcoding": {"name": "Transkodierung"},
       "free_minutes": {"name": "Freie Zeit"},
       "current_box": {"name": "Aktuelle Box"},
-      "sales_id": {"name": "Serien-ID"}
+      "sales_id": {"name": "Serien-ID"},
+      "battery": {"name": "Batterie"},
+      "battery_status": {"name": "Batteriestatus"},
+      "headphones": {"name": "Kopfhörer"}
     },
     "number": {
       "lightring_brightness": {"name": "Helligkeit Ring"},
@@ -216,7 +219,8 @@
       "led_active": {"name": "LED aktiv"},
       "currently_active": {"name": "Gerade aktiv"},
       "locked_household": {"name": "Im Haushalt gesperrt"},
-      "transcoding_active": {"name": "Transkodierung aktiv"}
+      "transcoding_active": {"name": "Transkodierung aktiv"},
+      "charging": {"name": "Wird geladen"}
     }
   }
 }

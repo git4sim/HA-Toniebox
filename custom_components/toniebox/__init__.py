@@ -1,7 +1,8 @@
-"""The Toniebox integration — full API v2."""
+"""The Toniebox integration — full API v2 with ICI real-time push."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import timedelta
@@ -14,7 +15,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, CONF_USERNAME, CONF_PASSWORD, UPDATE_INTERVAL_MINUTES
+from .const import (
+    DOMAIN, CONF_USERNAME, CONF_PASSWORD, UPDATE_INTERVAL_MINUTES,
+    ICI_TOPIC_BATTERY, ICI_TOPIC_ONLINE, ICI_TOPIC_HEADPHONES, ICI_TOPIC_SETTINGS,
+)
+from .ici_client import TonieboxIciClient
 from .tonie_client import TonieCloudClient, TonieCloudAuthError, TonieCloudAPIError
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +55,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         raise ConfigEntryNotReady(f"Could not fetch data: {err}") from err
 
+    # Start ICI real-time connection for TNG boxes
+    await coordinator.async_start_ici()
+
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _register_services(hass)
@@ -58,6 +66,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator and coordinator.ici_client:
+        await coordinator.ici_client.disconnect()
+        coordinator.client.remove_token_listener(coordinator.ici_client.on_token_refreshed)
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
@@ -342,16 +354,110 @@ async def _refresh_all(hass: HomeAssistant) -> None:
 # ── Coordinator ───────────────────────────────────────────────────────────────
 
 class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator: fetches ALL data from Tonie Cloud."""
+    """Coordinator: fetches ALL data from Tonie Cloud + ICI real-time push."""
 
     def __init__(self, hass: HomeAssistant, client: TonieCloudClient, entry: ConfigEntry) -> None:
         self.client = client
         self.entry = entry
+        self.ici_client: TonieboxIciClient | None = None
+        self._mac_to_tb: dict[str, tuple[str, str]] = {}  # mac → (hh_id, tb_id)
         super().__init__(
             hass, _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(minutes=UPDATE_INTERVAL_MINUTES),
         )
+
+    async def async_start_ici(self) -> None:
+        """Start ICI MQTT connection for real-time TNG box data."""
+        try:
+            user_uuid = await self.client.get_user_uuid()
+            if not user_uuid:
+                _LOGGER.debug("No user UUID available, skipping ICI")
+                return
+
+            # Collect all TNG boxes with their MAC addresses
+            all_boxes = []
+            for hh_id, hh in self.data.get("households", {}).items():
+                for tb_id, tb in hh.get("tonieboxes", {}).items():
+                    mac = tb.get("mac_address") or ""
+                    if mac:
+                        self._mac_to_tb[mac.upper()] = (hh_id, tb_id)
+                    all_boxes.append({
+                        "id": tb_id,
+                        "name": tb.get("name", tb_id),
+                        "macAddress": mac,
+                        "generation": tb.get("generation"),
+                    })
+
+            tng_boxes = [b for b in all_boxes if b.get("generation") == "tng"]
+            if not tng_boxes:
+                _LOGGER.debug("No TNG boxes found, ICI not needed")
+                return
+
+            self.ici_client = TonieboxIciClient(
+                on_message_callback=self._on_ici_message,
+                loop=asyncio.get_running_loop(),
+            )
+            self.client.add_token_listener(self.ici_client.on_token_refreshed)
+
+            token = self.client.access_token
+            if token:
+                await self.ici_client.connect(user_uuid, token, all_boxes)
+                _LOGGER.info("ICI MQTT started for %d TNG boxes", len(tng_boxes))
+        except Exception:
+            _LOGGER.warning("Failed to start ICI MQTT", exc_info=True)
+
+    def _on_ici_message(self, mac: str, subtopic: str, payload: dict) -> None:
+        """Handle an ICI MQTT message (called from the event loop)."""
+        lookup_mac = mac.upper()
+        tb_ref = self._mac_to_tb.get(lookup_mac)
+        if not tb_ref:
+            _LOGGER.debug("ICI message for unknown MAC %s", mac)
+            return
+
+        hh_id, tb_id = tb_ref
+        data = self.data
+        if not data:
+            return
+
+        tb = (
+            data.get("households", {})
+            .get(hh_id, {})
+            .get("tonieboxes", {})
+            .get(tb_id)
+        )
+        if not tb:
+            return
+
+        updated = False
+
+        if subtopic == ICI_TOPIC_BATTERY and isinstance(payload, dict):
+            tb["battery"] = {
+                "percent": payload.get("percent"),
+                "raw": payload.get("raw"),
+                "status": payload.get("status"),
+            }
+            updated = True
+
+        elif subtopic == ICI_TOPIC_ONLINE and isinstance(payload, dict):
+            state = payload.get("onlineState")
+            if state:
+                tb["online_state"] = state
+                updated = True
+
+        elif subtopic == ICI_TOPIC_HEADPHONES and isinstance(payload, dict):
+            tb["headphones"] = {
+                "output": payload.get("speaker", {}).get("output") if isinstance(payload.get("speaker"), dict) else None,
+                "connected": payload.get("connected", []),
+            }
+            updated = True
+
+        elif subtopic == ICI_TOPIC_SETTINGS:
+            tb["settings_applied"] = True
+            updated = True
+
+        if updated:
+            self.async_set_updated_data(data)
 
     async def _async_update_data(self) -> dict:
         try:
@@ -606,6 +712,21 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             placed_tonie.setdefault("name", known.get("name"))
                             placed_tonie.setdefault("imageUrl", known.get("image_url"))
 
+                    # Preserve ICI real-time data across REST polling
+                    prev_tb = (
+                        (self.data or {})
+                        .get("households", {}).get(hh_id, {})
+                        .get("tonieboxes", {}).get(b_id, {})
+                    )
+                    ici_online = prev_tb.get("online_state")
+                    rest_online = box.get("onlineState")
+                    # Keep ICI value if REST returns "unsupported" or None
+                    effective_online = (
+                        ici_online
+                        if ici_online in ("connected", "offline") and rest_online in (None, "unsupported")
+                        else rest_online
+                    )
+
                     hh_data["tonieboxes"][b_id] = {
                         # Identity
                         "id": b_id,
@@ -616,7 +737,10 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "product": box.get("product"),
                         "features": box.get("features", []),
                         # State
-                        "online_state": box.get("onlineState"),
+                        "online_state": effective_online,
+                        # ICI real-time data (preserved across REST polling)
+                        "battery": prev_tb.get("battery"),
+                        "headphones": prev_tb.get("headphones"),
                         "offline_mode": box.get("offlineMode", False),
                         "firmware_version": box.get("firmwareVersion"),
                         "ssid": box.get("ssid"),

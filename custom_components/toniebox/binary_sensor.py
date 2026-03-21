@@ -30,11 +30,14 @@ async def async_setup_entry(
     entities: list = []
 
     for hh_id, hh in coordinator.data.get("households", {}).items():
-        for tb_id in hh.get("tonieboxes", {}):
+        for tb_id, tb in hh.get("tonieboxes", {}).items():
             entities += [
                 TonieboxOnlineSensor(coordinator, hh_id, tb_id),
                 TonieboxLEDSensor(coordinator, hh_id, tb_id),
             ]
+            # Charging sensor — TNG boxes only (via ICI real-time push)
+            if tb.get("generation") == "tng":
+                entities.append(TonieboxChargingSensor(coordinator, hh_id, tb_id))
     # ── Content Tonie binary sensors ─────────────────────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
@@ -76,10 +79,10 @@ class _TbBin(CoordinatorEntity, BinarySensorEntity):
 
 
 class TonieboxOnlineSensor(_TbBin):
-    """Binary sensor that is True only when the Toniebox has been seen recently.
+    """Binary sensor that reflects the Toniebox online state.
 
-    Uses TONIEBOX_ONLINE_TIMEOUT_MINUTES to determine staleness. This prevents
-    a box that has been offline for weeks from still showing as 'Online'.
+    For TNG boxes with ICI, online_state is updated in real-time via MQTT push.
+    For classic boxes, falls back to last_seen timestamp comparison.
     """
 
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
@@ -93,6 +96,12 @@ class TonieboxOnlineSensor(_TbBin):
 
     @property
     def is_on(self) -> bool:
+        # ICI provides reliable real-time state for TNG boxes
+        online_state = self._tb.get("online_state")
+        if online_state in ("connected", "offline"):
+            return online_state == "connected"
+
+        # Fallback: last_seen timestamp for classic boxes or when ICI is unavailable
         last_seen = self._tb.get("last_seen")
         if not last_seen:
             return False
@@ -122,5 +131,24 @@ class TonieboxLEDSensor(_TbBin):
     @property
     def is_on(self) -> bool:
         return self._tb.get("led", True)
+
+
+class TonieboxChargingSensor(_TbBin):
+    """Whether a TNG Toniebox is currently charging (via ICI real-time push)."""
+
+    _attr_device_class = BinarySensorDeviceClass.BATTERY_CHARGING
+    _attr_icon = "mdi:battery-charging"
+    _attr_translation_key = "charging"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_charging"
+
+    @property
+    def is_on(self) -> bool | None:
+        battery = self._tb.get("battery")
+        if isinstance(battery, dict):
+            return battery.get("status") == "charging"
+        return None
 
 
