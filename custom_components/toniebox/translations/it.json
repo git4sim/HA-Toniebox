@@ -208,7 +208,13 @@
     "sensor": {
       "current_tonie": {
         "name": "Figura attuale"
-      }
+      },
+      "battery": {"name": "Batteria"},
+      "battery_status": {"name": "Stato batteria"},
+      "headphones": {"name": "Cuffie"}
+    },
+    "binary_sensor": {
+      "charging": {"name": "In carica"}
     },
     "number": {
       "lightring_brightness": {

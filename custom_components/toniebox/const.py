@@ -35,3 +35,11 @@ SORT_BY_TITLE = "title"
 SORT_BY_FILENAME = "filename"
 SORT_BY_DATE = "date"
 SORT_OPTIONS = [SORT_BY_TITLE, SORT_BY_FILENAME, SORT_BY_DATE]
+
+# ICI (MQTT v5 real-time push)
+ICI_HOST = "ici.tonie.cloud"
+ICI_PORT = 443
+ICI_TOPIC_BATTERY = "metrics/battery"
+ICI_TOPIC_ONLINE = "online-state"
+ICI_TOPIC_HEADPHONES = "metrics/headphones"
+ICI_TOPIC_SETTINGS = "settings-applied"

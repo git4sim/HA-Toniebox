@@ -1,10 +1,11 @@
 """Sensor platform — read-only state and info sensors."""
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
@@ -65,6 +66,14 @@ async def async_setup_entry(
             # Bedtime color — only on tng
             if "tngSettings" in features:
                 entities.append(TonieboxBedtimeColorSensor(coordinator, hh_id, tb_id))
+            # ICI sensors — TNG boxes only (battery, headphones via real-time push)
+            generation = tb.get("generation", "")
+            if generation == "tng":
+                entities += [
+                    TonieboxBatterySensor(coordinator, hh_id, tb_id),
+                    TonieboxBatteryStatusSensor(coordinator, hh_id, tb_id),
+                    TonieboxHeadphonesSensor(coordinator, hh_id, tb_id),
+                ]
 
         # ── Creative Tonie sensors ────────────────────────────────────────────
         for t_id in hh.get("creativetonies", {}):
@@ -286,6 +295,8 @@ class TonieboxGenerationSensor(_TbBase):
     @property
     def extra_state_attributes(self):
         return {
+            "device_id": self._tb.get("id"),
+            "mac_address": self._tb.get("mac_address"),
             "product": self._tb.get("product"),
             "offline_mode": self._tb.get("offline_mode"),
         }
@@ -357,6 +368,117 @@ class TonieboxBedtimeColorSensor(_TbBase):
     @property
     def native_value(self):
         return self._tb.get("bedtime_lightring_color")
+
+
+# ── ICI real-time sensors (TNG only) ─────────────────────────────────────────
+
+class _TbIciBase(_TbBase, RestoreEntity):
+    """Base for ICI sensors that restore their last known state on startup."""
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._restored_state = None
+        self._restored_attributes: dict = {}
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_state()) and last.state not in (
+            None, "unknown", "unavailable",
+        ):
+            self._restored_state = last.state
+            self._restored_attributes = dict(last.attributes)
+        else:
+            self._restored_state = None
+            self._restored_attributes = {}
+
+
+class TonieboxBatterySensor(_TbIciBase):
+    """Battery level of a TNG Toniebox (via ICI real-time push)."""
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "%"
+    _attr_icon = "mdi:battery"
+    _attr_translation_key = "battery"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_battery"
+
+    @property
+    def native_value(self):
+        battery = self._tb.get("battery")
+        if isinstance(battery, dict):
+            return battery.get("percent")
+        if self._restored_state is not None:
+            try:
+                return int(self._restored_state)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        battery = self._tb.get("battery")
+        if isinstance(battery, dict):
+            return {
+                "raw": battery.get("raw"),
+                "status": battery.get("status"),
+            }
+        return self._restored_attributes if self._restored_attributes else {}
+
+
+class TonieboxBatteryStatusSensor(_TbIciBase):
+    """Charging status of a TNG Toniebox (charging / discharging)."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:battery-charging"
+    _attr_translation_key = "battery_status"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_battery_status"
+
+    @property
+    def native_value(self):
+        battery = self._tb.get("battery")
+        if isinstance(battery, dict):
+            return battery.get("status")
+        return self._restored_state
+
+
+class TonieboxHeadphonesSensor(_TbIciBase):
+    """Headphones connection status of a TNG Toniebox."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:headphones"
+    _attr_translation_key = "headphones"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_headphones"
+
+    @property
+    def native_value(self):
+        hp = self._tb.get("headphones")
+        if not isinstance(hp, dict):
+            return self._restored_state
+        connected = hp.get("connected", [])
+        if connected:
+            first = connected[0] if isinstance(connected[0], dict) else {}
+            return first.get("type", "bluetooth")
+        output = hp.get("output")
+        return output if output else "speaker"
+
+    @property
+    def extra_state_attributes(self):
+        hp = self._tb.get("headphones")
+        if not isinstance(hp, dict):
+            return self._restored_attributes if self._restored_attributes else {}
+        connected = hp.get("connected", [])
+        attrs = {"output": hp.get("output")}
+        if connected and isinstance(connected[0], dict):
+            attrs["connected_type"] = connected[0].get("type")
+            attrs["connected_battery"] = connected[0].get("battery")
+        return attrs
 
 
 # ── Creative Tonie sensors ────────────────────────────────────────────────────

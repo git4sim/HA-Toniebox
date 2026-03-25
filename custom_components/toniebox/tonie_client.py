@@ -54,6 +54,8 @@ class TonieCloudClient:
         self._access_token: str | None = None
         self._refresh_token: str | None = None
         self._token_expires_at: float = 0.0
+        self._user_uuid: str | None = None
+        self._token_listeners: list = []
 
     @property
     def _auth_headers(self) -> dict[str, str]:
@@ -61,6 +63,44 @@ class TonieCloudClient:
 
     def _is_token_expired(self) -> bool:
         return time.monotonic() >= (self._token_expires_at - _TOKEN_REFRESH_BUFFER)
+
+    @property
+    def access_token(self) -> str | None:
+        """Return the current access token."""
+        return self._access_token
+
+    @property
+    def refresh_token(self) -> str | None:
+        """Return the current refresh token."""
+        return self._refresh_token
+
+    def add_token_listener(self, callback) -> None:
+        """Register a callback for token refresh events."""
+        self._token_listeners.append(callback)
+
+    def remove_token_listener(self, callback) -> None:
+        """Remove a token refresh callback."""
+        self._token_listeners = [cb for cb in self._token_listeners if cb is not callback]
+
+    def _notify_token_listeners(self) -> None:
+        """Notify listeners that the token has been refreshed."""
+        for callback in self._token_listeners:
+            try:
+                callback(self._access_token)
+            except Exception:
+                _LOGGER.debug("Token listener callback failed", exc_info=True)
+
+    async def get_user_uuid(self) -> str | None:
+        """Get the user UUID from /me, cached after first call."""
+        if self._user_uuid:
+            return self._user_uuid
+        try:
+            me = await self.get_me()
+            self._user_uuid = me.get("uuid") or me.get("id")
+            return self._user_uuid
+        except Exception:
+            _LOGGER.debug("Could not fetch user UUID", exc_info=True)
+            return None
 
     # ── Authentication ────────────────────────────────────────────────────────
 
@@ -90,6 +130,7 @@ class TonieCloudClient:
                 expires_in = token_data.get("expires_in", 300)
                 self._token_expires_at = time.monotonic() + expires_in
                 _LOGGER.debug("Authenticated, token valid for %ss", expires_in)
+                self._notify_token_listeners()
         except aiohttp.ClientError as err:
             raise TonieCloudAuthError(f"Network error: {err}") from err
 
@@ -116,6 +157,7 @@ class TonieCloudClient:
                 self._refresh_token = token_data.get("refresh_token", self._refresh_token)
                 expires_in = token_data.get("expires_in", 300)
                 self._token_expires_at = time.monotonic() + expires_in
+                self._notify_token_listeners()
         except aiohttp.ClientError:
             await self.authenticate()
 
