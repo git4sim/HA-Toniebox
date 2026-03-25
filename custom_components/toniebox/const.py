@@ -42,5 +42,4 @@ ICI_PORT = 443
 ICI_TOPIC_BATTERY = "metrics/battery"
 ICI_TOPIC_ONLINE = "online-state"
 ICI_TOPIC_HEADPHONES = "metrics/headphones"
-ICI_TOPIC_BEDTIME = "app-reply/bedtime-state"
 ICI_TOPIC_SETTINGS = "settings-applied"

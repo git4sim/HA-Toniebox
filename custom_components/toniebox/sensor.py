@@ -375,6 +375,11 @@ class TonieboxBedtimeColorSensor(_TbBase):
 class _TbIciBase(_TbBase, RestoreEntity):
     """Base for ICI sensors that restore their last known state on startup."""
 
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._restored_state = None
+        self._restored_attributes: dict = {}
+
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         if (last := await self.async_get_last_state()) and last.state not in (
@@ -399,8 +404,6 @@ class TonieboxBatterySensor(_TbIciBase):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_battery"
-        self._restored_state = None
-        self._restored_attributes = {}
 
     @property
     def native_value(self):
@@ -434,8 +437,6 @@ class TonieboxBatteryStatusSensor(_TbIciBase):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_battery_status"
-        self._restored_state = None
-        self._restored_attributes = {}
 
     @property
     def native_value(self):
@@ -454,8 +455,6 @@ class TonieboxHeadphonesSensor(_TbIciBase):
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
         self._attr_unique_id = f"tb_{tb_id}_headphones"
-        self._restored_state = None
-        self._restored_attributes = {}
 
     @property
     def native_value(self):

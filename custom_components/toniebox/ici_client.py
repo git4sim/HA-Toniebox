@@ -49,6 +49,7 @@ class TonieboxIciClient:
         self._connected = False
         self._boxes: list[dict] = []
         self._user_uuid: str | None = None
+        self._last_token: str | None = None
 
     @property
     def connected(self) -> bool:
@@ -63,6 +64,7 @@ class TonieboxIciClient:
     ) -> None:
         """Connect to ICI broker and subscribe to topics for all TNG boxes."""
         self._user_uuid = user_uuid
+        self._last_token = access_token
         self._boxes = [b for b in boxes if b.get("generation") == "tng"]
 
         if not self._boxes:
@@ -73,7 +75,7 @@ class TonieboxIciClient:
             self._loop = asyncio.get_running_loop()
 
         random_id = str(uuid_lib.uuid4())
-        client_id = f"{user_uuid}_ha_toniebox_{random_id}_{user_uuid}"
+        client_id = f"{user_uuid}_ha_toniebox_{random_id}"
 
         def _setup_and_connect():
             """Set up MQTT client (blocking TLS calls) and connect."""
@@ -120,7 +122,7 @@ class TonieboxIciClient:
 
     def on_token_refreshed(self, new_token: str) -> None:
         """Called by TonieCloudClient when the token is refreshed."""
-        if not self._connected or not self._loop:
+        if not self._user_uuid or not self._loop:
             return
         asyncio.run_coroutine_threadsafe(self.reconnect(new_token), self._loop)
 
@@ -128,7 +130,7 @@ class TonieboxIciClient:
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         rc_str = str(reason_code)
-        if reason_code == 0 or rc_str == "Success":
+        if rc_str == "Success":
             self._connected = True
             _LOGGER.info("ICI MQTT connected")
             self._subscribe_all()
@@ -139,6 +141,10 @@ class TonieboxIciClient:
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         self._connected = False
         _LOGGER.debug("ICI MQTT disconnected: %s", reason_code)
+        # Schedule reconnect unless we intentionally disconnected (client set to None)
+        if self._client and self._loop and self._last_token:
+            _LOGGER.debug("ICI MQTT scheduling reconnect after unexpected disconnect")
+            asyncio.run_coroutine_threadsafe(self.reconnect(self._last_token), self._loop)
 
     def _on_message(self, client, userdata, msg):
         topic = msg.topic
