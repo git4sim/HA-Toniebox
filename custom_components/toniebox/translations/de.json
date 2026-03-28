@@ -165,7 +165,9 @@
       "sales_id": {"name": "Serien-ID"},
       "battery": {"name": "Batterie"},
       "battery_status": {"name": "Batteriestatus"},
-      "headphones": {"name": "Kopfhörer"}
+      "audio_output": {"name": "Audioausgabe"},
+      "headphones_battery": {"name": "Kopfhörer-Batterie"},
+      "headphones_color": {"name": "Farbe"}
     },
     "number": {
       "lightring_brightness": {"name": "Helligkeit Ring"},
@@ -214,13 +216,17 @@
       "factory_reset": {"name": "Auf Werkseinstellungen zurücksetzen"},
       "remove_tune": {"name": "Tune entfernen"}
     },
+    "image": {
+      "toniebox_image": {"name": "Bild"}
+    },
     "binary_sensor": {
       "online": {"name": "Online"},
       "led_active": {"name": "LED aktiv"},
       "currently_active": {"name": "Gerade aktiv"},
       "locked_household": {"name": "Im Haushalt gesperrt"},
       "transcoding_active": {"name": "Transkodierung aktiv"},
-      "charging": {"name": "Wird geladen"}
+      "charging": {"name": "Wird geladen"},
+      "headphones_connected": {"name": "Verbunden"}
     }
   }
 }

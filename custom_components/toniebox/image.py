@@ -1,0 +1,90 @@
+"""Image platform — Toniebox preview image based on bleColorId."""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from homeassistant.components.image import ImageEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
+from .device_info import toniebox_device_info
+
+# bleColorId → CDN preview thumbnail (from boxItemPreviews GraphQL query)
+BLE_COLOR_THUMBNAILS: dict[int, str] = {
+    0: "https://cdn.tonies.de/upload/tb2_preview_blue.png",
+    1: "https://cdn.tonies.de/upload/tb2_preview_grey.png",
+    2: "https://cdn.tonies.de/upload/tb2_preview_red.png",
+    3: "https://cdn.tonies.de/upload/tb2_preview_pink.png",
+    4: "https://cdn.tonies.de/upload/tb2_preview_teal.png",
+    5: "https://cdn.tonies.de/upload/tb2_preview_yellow.png",
+}
+
+BLE_COLOR_NAMES: dict[int, str] = {
+    0: "Himmelblau",
+    1: "Mondgrau",
+    2: "Rot",
+    3: "Rosa",
+    4: "Meeresgrün",
+    5: "Blitzgelb",
+}
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    entities: list = []
+
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for tb_id, tb in hh.get("tonieboxes", {}).items():
+            entities.append(TonieboxImage(coordinator, hh_id, tb_id))
+
+    async_add_entities(entities)
+
+
+class TonieboxImage(CoordinatorEntity, ImageEntity):
+    """Preview image of a Toniebox based on its color."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "toniebox_image"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        CoordinatorEntity.__init__(self, coordinator)
+        ImageEntity.__init__(self, coordinator.hass)
+        self._hh_id = hh_id
+        self._tb_id = tb_id
+        self._attr_unique_id = f"tb_{tb_id}_image"
+        self._attr_image_last_updated = datetime(2025, 1, 1, tzinfo=timezone.utc)
+
+    @property
+    def _tb(self):
+        return (
+            self.coordinator.data
+            .get("households", {}).get(self._hh_id, {})
+            .get("tonieboxes", {}).get(self._tb_id, {})
+        )
+
+    @property
+    def device_info(self):
+        return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
+
+    @property
+    def image_url(self) -> str | None:
+        color_id = self._tb.get("ble_color_id")
+        if color_id is not None and color_id in BLE_COLOR_THUMBNAILS:
+            return BLE_COLOR_THUMBNAILS[color_id]
+        # Fallback to API imageUrl
+        return self._tb.get("image_url")
+
+    @property
+    def extra_state_attributes(self):
+        color_id = self._tb.get("ble_color_id")
+        attrs = {}
+        if color_id is not None:
+            attrs["ble_color_id"] = color_id
+            if color_id in BLE_COLOR_NAMES:
+                attrs["color_name"] = BLE_COLOR_NAMES[color_id]
+        return attrs

@@ -20,7 +20,7 @@ from .content_tonie import (
     DiscActiveBinarySensor,
     DiscLockBinarySensor,
 )
-from .device_info import toniebox_device_info
+from .device_info import toniebox_device_info, headphones_device_info
 
 
 async def async_setup_entry(
@@ -35,9 +35,10 @@ async def async_setup_entry(
                 TonieboxOnlineSensor(coordinator, hh_id, tb_id),
                 TonieboxLEDSensor(coordinator, hh_id, tb_id),
             ]
-            # Charging sensor — TNG boxes only (via ICI real-time push)
+            # ICI sensors — TNG boxes only (via real-time push)
             if tb.get("generation") == "tng":
                 entities.append(TonieboxChargingSensor(coordinator, hh_id, tb_id))
+                entities.append(HeadphonesConnectedSensor(coordinator, hh_id, tb_id))
     # ── Content Tonie binary sensors ─────────────────────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
@@ -150,5 +151,39 @@ class TonieboxChargingSensor(_TbBin):
         if isinstance(battery, dict):
             return battery.get("status") == "charging"
         return None
+
+
+class HeadphonesConnectedSensor(_TbBin):
+    """Whether headphones are connected to a TNG Toniebox (via ICI)."""
+
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_icon = "mdi:headphones"
+    _attr_translation_key = "headphones_connected"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_headphones_connected"
+
+    @property
+    def device_info(self) -> dict:
+        return headphones_device_info(self.coordinator, self._hh_id, self._tb_id)
+
+    @property
+    def is_on(self) -> bool | None:
+        hp = self._tb.get("headphones")
+        if not isinstance(hp, dict):
+            return None
+        connected = hp.get("connected", [])
+        return len(connected) > 0
+
+    @property
+    def extra_state_attributes(self):
+        hp = self._tb.get("headphones")
+        if not isinstance(hp, dict):
+            return {}
+        connected = hp.get("connected", [])
+        if connected and isinstance(connected[0], dict):
+            return {"type": connected[0].get("type")}
+        return {}
 
 

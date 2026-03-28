@@ -3,7 +3,9 @@
 Device hierarchy in Home Assistant:
   Haushalt [Hub/Service]
     ├── Toniebox (Gerät, model="Toniebox")
-    │     entities: media_player, LED switch, mute switch, firmware sensor, last-seen sensor, refresh button
+    │     ├── entities: media_player, LED switch, mute switch, firmware sensor, last-seen sensor, refresh button
+    │     └── Headphones (Sub-Device, model="Tonie Headphones")
+    │           entities: connected binary_sensor, battery sensor
     └── Creative Tonie (Gerät, model="Creative Tonie")
           entities: media_player, chapter sensors, sort/clear buttons, private/live switches
 
@@ -54,6 +56,23 @@ def toniebox_device_info(coordinator, hh_id: str, tb_id: str) -> dict:
     if mac:
         info["connections"] = {(dr.CONNECTION_NETWORK_MAC, mac.lower())}
     return info
+
+
+def headphones_device_info(coordinator, hh_id: str, tb_id: str) -> dict:
+    """Headphones sub-device — child of the Toniebox it is connected to."""
+    tb = (
+        coordinator.data
+        .get("households", {}).get(hh_id, {})
+        .get("tonieboxes", {}).get(tb_id, {})
+    )
+    tb_name = tb.get("name", "Toniebox")
+    return {
+        "identifiers": {(DOMAIN, f"tb_{tb_id}_headphones")},
+        "name": f"{tb_name} Headphones",
+        "manufacturer": "Boxine GmbH",
+        "model": "Tonie Headphones",
+        "via_device": (DOMAIN, f"tb_{tb_id}"),
+    }
 
 
 def creative_tonie_device_info(coordinator, hh_id: str, t_id: str) -> dict:
