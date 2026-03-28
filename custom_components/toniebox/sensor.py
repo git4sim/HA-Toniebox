@@ -250,6 +250,7 @@ class TonieboxFirmwareSensor(_TbBase):
 
 class TonieboxLastSeenSensor(_TbBase):
     _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:clock-outline"
     _attr_entity_registry_enabled_default = False
     _attr_translation_key = "last_seen"

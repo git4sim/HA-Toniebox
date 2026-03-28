@@ -457,7 +457,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             updated = True
 
         if updated:
-            tb["last_seen"] = datetime.now(timezone.utc).isoformat()
+            tb["last_seen"] = datetime.now(timezone.utc)
             self.async_set_updated_data(data)
 
     async def _async_update_data(self) -> dict:
