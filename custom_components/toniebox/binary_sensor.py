@@ -172,7 +172,7 @@ class HeadphonesConnectedSensor(_TbBin):
     def is_on(self) -> bool | None:
         hp = self._tb.get("headphones")
         if not isinstance(hp, dict):
-            return None
+            return False
         connected = hp.get("connected", [])
         return len(connected) > 0
 
