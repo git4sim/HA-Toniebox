@@ -211,10 +211,16 @@
       },
       "battery": {"name": "Batteria"},
       "battery_status": {"name": "Stato batteria"},
-      "headphones": {"name": "Cuffie"}
+      "audio_output": {"name": "Uscita audio"},
+      "headphones_battery": {"name": "Batteria cuffie"},
+      "headphones_color": {"name": "Colore"}
+    },
+    "image": {
+      "toniebox_image": {"name": "Immagine"}
     },
     "binary_sensor": {
-      "charging": {"name": "In carica"}
+      "charging": {"name": "In carica"},
+      "headphones_connected": {"name": "Collegato"}
     },
     "number": {
       "lightring_brightness": {

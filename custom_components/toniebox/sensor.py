@@ -20,6 +20,7 @@ from .content_tonie import (
 from .device_info import (
     household_device_info,
     toniebox_device_info,
+    headphones_device_info,
     creative_tonie_device_info,
 )
 
@@ -72,7 +73,9 @@ async def async_setup_entry(
                 entities += [
                     TonieboxBatterySensor(coordinator, hh_id, tb_id),
                     TonieboxBatteryStatusSensor(coordinator, hh_id, tb_id),
-                    TonieboxHeadphonesSensor(coordinator, hh_id, tb_id),
+                    HeadphonesTypeSensor(coordinator, hh_id, tb_id),
+                    HeadphonesBatterySensor(coordinator, hh_id, tb_id),
+                    HeadphonesColorSensor(coordinator, hh_id, tb_id),
                 ]
 
         # ── Creative Tonie sensors ────────────────────────────────────────────
@@ -250,6 +253,7 @@ class TonieboxFirmwareSensor(_TbBase):
 
 class TonieboxLastSeenSensor(_TbBase):
     _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:clock-outline"
     _attr_entity_registry_enabled_default = False
     _attr_translation_key = "last_seen"
@@ -446,15 +450,23 @@ class TonieboxBatteryStatusSensor(_TbIciBase):
         return self._restored_state
 
 
-class TonieboxHeadphonesSensor(_TbIciBase):
-    """Headphones connection status of a TNG Toniebox."""
+class _HeadphonesBase(_TbIciBase):
+    """Base for sensors belonging to the headphones sub-device."""
+
+    @property
+    def device_info(self):
+        return headphones_device_info(self.coordinator, self._hh_id, self._tb_id)
+
+
+class HeadphonesTypeSensor(_TbIciBase):
+    """Audio output type: speaker (built-in) or bluetooth (headphones connected)."""
     _attr_has_entity_name = True
-    _attr_icon = "mdi:headphones"
-    _attr_translation_key = "headphones"
+    _attr_icon = "mdi:speaker"
+    _attr_translation_key = "audio_output"
 
     def __init__(self, coordinator, hh_id, tb_id):
         super().__init__(coordinator, hh_id, tb_id)
-        self._attr_unique_id = f"tb_{tb_id}_headphones"
+        self._attr_unique_id = f"tb_{tb_id}_audio_output"
 
     @property
     def native_value(self):
@@ -465,20 +477,55 @@ class TonieboxHeadphonesSensor(_TbIciBase):
         if connected:
             first = connected[0] if isinstance(connected[0], dict) else {}
             return first.get("type", "bluetooth")
-        output = hp.get("output")
-        return output if output else "speaker"
+        return "speaker"
+
+
+class HeadphonesBatterySensor(_HeadphonesBase):
+    """Battery level of headphones connected to a TNG Toniebox (via ICI)."""
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "%"
+    _attr_icon = "mdi:headphones"
+    _attr_translation_key = "headphones_battery"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_headphones_battery"
 
     @property
-    def extra_state_attributes(self):
+    def native_value(self):
         hp = self._tb.get("headphones")
-        if not isinstance(hp, dict):
-            return self._restored_attributes if self._restored_attributes else {}
-        connected = hp.get("connected", [])
-        attrs = {"output": hp.get("output")}
-        if connected and isinstance(connected[0], dict):
-            attrs["connected_type"] = connected[0].get("type")
-            attrs["connected_battery"] = connected[0].get("battery")
-        return attrs
+        if isinstance(hp, dict):
+            connected = hp.get("connected", [])
+            if connected and isinstance(connected[0], dict):
+                return connected[0].get("battery")
+        if self._restored_state is not None:
+            try:
+                return int(self._restored_state)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+
+class HeadphonesColorSensor(_HeadphonesBase):
+    """Color code of connected headphones (via ICI)."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:palette"
+    _attr_translation_key = "headphones_color"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_headphones_color"
+
+    @property
+    def native_value(self):
+        hp = self._tb.get("headphones")
+        if isinstance(hp, dict):
+            connected = hp.get("connected", [])
+            if connected and isinstance(connected[0], dict):
+                return connected[0].get("color")
+        return self._restored_state
 
 
 # ── Creative Tonie sensors ────────────────────────────────────────────────────
