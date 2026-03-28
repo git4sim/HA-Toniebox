@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -31,6 +31,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.BINARY_SENSOR,
     Platform.NUMBER,
+    Platform.IMAGE,
 ]
 
 
@@ -457,6 +458,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             updated = True
 
         if updated:
+            tb["last_seen"] = datetime.now(timezone.utc)
             self.async_set_updated_data(data)
 
     async def _async_update_data(self) -> dict:
