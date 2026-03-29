@@ -532,8 +532,11 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # with flexible matching, then supplement with dedicated endpoints.
             try:
                 all_tonies = await self.client.get_creative_tonies(hh_id)
-                _LOGGER.debug(
-                    "get_creative_tonies(%s): %d items total", hh_id, len(all_tonies)
+                _LOGGER.warning(
+                    "[DIAG] get_creative_tonies(%s): %d items. "
+                    "First item keys: %s",
+                    hh_id, len(all_tonies),
+                    list(all_tonies[0].keys()) if all_tonies and isinstance(all_tonies[0], dict) else "n/a",
                 )
                 for tonie in all_tonies:
                     if not isinstance(tonie, dict):
@@ -549,7 +552,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         or tonie.get("tonieType")
                         or ""
                     ).lower()
-                    _LOGGER.debug("tonie %s type=%r name=%s", t_id, tonie_type_raw, tonie.get("name"))
+                    _LOGGER.warning("[DIAG] tonie id=%s type=%r tonieType=%r name=%s keys=%s",
+                        t_id, tonie.get("type"), tonie.get("tonieType"), tonie.get("name"), list(tonie.keys()))
 
                     chapters = [
                         {
@@ -661,7 +665,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "tune_id": tonie.get("tuneId") or tonie.get("tune_id"),
                     }
             except Exception as e:
-                _LOGGER.debug("get_content_tonies(%s) not available: %s", hh_id, e)
+                _LOGGER.warning("[DIAG] get_content_tonies(%s) failed: %s — %s", hh_id, type(e).__name__, e)
 
             # ── Discs (dedicated endpoint) ─────────────────────────────────────
             # GET /households/{hh}/discs is also undocumented in Swagger but
@@ -692,7 +696,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "toniebox_id": disc.get("tonieboxId") or disc.get("toniebox_id"),
                     }
             except Exception as e:
-                _LOGGER.debug("get_discs(%s) not available: %s", hh_id, e)
+                _LOGGER.warning("[DIAG] get_discs(%s) failed: %s — %s", hh_id, type(e).__name__, e)
 
             _LOGGER.info(
                 "household %s: %d creative, %d content, %d discs",
@@ -712,6 +716,10 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
 
                     placement = box.get("placement") or {}
                     placed_tonie = placement.get("tonie") or {}
+                    _LOGGER.warning(
+                        "[DIAG] box %s — box keys: %s | placement: %r",
+                        b_id, list(box.keys()), placement,
+                    )
 
                     # Normalize: API may return tonieId/tonie_id/id flat instead of
                     # a nested "tonie" sub-object.  Build a synthetic tonie dict and
