@@ -628,6 +628,34 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     placement = box.get("placement") or {}
                     placed_tonie = placement.get("tonie") or {}
 
+                    # Normalize: API may return tonieId/tonie_id/id flat instead of
+                    # a nested "tonie" sub-object.  Build a synthetic tonie dict and
+                    # inject it back so all downstream code can use placement["tonie"].
+                    if not placed_tonie.get("id"):
+                        flat_id = (
+                            placement.get("tonieId")
+                            or placement.get("tonie_id")
+                            or placement.get("id")
+                        )
+                        if flat_id:
+                            placed_tonie = {
+                                "id": flat_id,
+                                "name": (
+                                    placement.get("tonieName")
+                                    or placement.get("name")
+                                ),
+                                "imageUrl": (
+                                    placement.get("tonieImageUrl")
+                                    or placement.get("imageUrl")
+                                    or placement.get("image_url")
+                                ),
+                                "type": (
+                                    placement.get("tonieType")
+                                    or placement.get("type")
+                                ),
+                            }
+                            placement = {**placement, "tonie": placed_tonie}
+
                     # Playback info — only fetch when a tonie is actively placed
                     playback_info: dict = {}
                     if placed_tonie and placed_tonie.get("id"):

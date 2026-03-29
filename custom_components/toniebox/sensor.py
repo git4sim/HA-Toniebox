@@ -719,7 +719,33 @@ class TonieboxCurrentTonieSensor(_TbBase):
 
     @property
     def _placed_tonie(self) -> dict:
-        return self._placement.get("tonie") or {}
+        placement = self._placement
+        tonie = placement.get("tonie") or {}
+        if tonie.get("id"):
+            return tonie
+        # Fallback: flat placement (tonieId / id) that __init__ may not have
+        # had a chance to normalise yet (e.g. first read before coordinator run).
+        flat_id = (
+            placement.get("tonieId")
+            or placement.get("tonie_id")
+            or placement.get("id")
+        )
+        if flat_id:
+            hh_data = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+            known = (
+                hh_data.get("creativetonies", {}).get(flat_id)
+                or hh_data.get("contenttonies", {}).get(flat_id)
+                or hh_data.get("discs", {}).get(flat_id)
+            )
+            if known:
+                return {
+                    "id": flat_id,
+                    "name": known.get("name"),
+                    "imageUrl": known.get("image_url"),
+                    "type": known.get("type"),
+                }
+            return {"id": flat_id}
+        return {}
 
     @property
     def _playback(self) -> dict:
@@ -728,7 +754,14 @@ class TonieboxCurrentTonieSensor(_TbBase):
     @property
     def native_value(self) -> str | None:
         tonie = self._placed_tonie
-        return tonie.get("name") or tonie.get("id") or None
+        pi = self._playback
+        return (
+            tonie.get("name")
+            or pi.get("name")
+            or pi.get("title")
+            or tonie.get("id")
+            or None
+        )
 
     @property
     def entity_picture(self) -> str | None:
@@ -744,7 +777,7 @@ class TonieboxCurrentTonieSensor(_TbBase):
         pi = self._playback
         return {
             "tonie_id": tonie.get("id"),
-            "tonie_type": pi.get("tonieType"),
+            "tonie_type": pi.get("tonieType") or tonie.get("type"),
             "playback_status": pi.get("status"),
             "image_url": pi.get("imageUrl") or tonie.get("imageUrl"),
             "chapters": [
