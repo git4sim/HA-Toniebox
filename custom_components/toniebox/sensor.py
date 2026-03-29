@@ -755,9 +755,11 @@ class TonieboxCurrentTonieSensor(_TbBase):
     def native_value(self) -> str | None:
         tonie = self._placed_tonie
         pi = self._playback
+        # API: series = public Tonie character name (e.g. "Benjamin Blümchen")
+        #      title  = content title (e.g. "Benjamin Blümchen und der Weihnachtsmann")
         return (
-            tonie.get("name")
-            or pi.get("name")
+            pi.get("series")
+            or tonie.get("name")
             or pi.get("title")
             or tonie.get("id")
             or None
@@ -765,8 +767,10 @@ class TonieboxCurrentTonieSensor(_TbBase):
 
     @property
     def entity_picture(self) -> str | None:
+        # API: tonieImageUrl = Tonie thumbnail, coverUrl = content cover art
         return (
-            self._playback.get("imageUrl")
+            self._playback.get("tonieImageUrl")
+            or self._playback.get("coverUrl")
             or self._placed_tonie.get("imageUrl")
             or self._placed_tonie.get("image_url")
         )
@@ -778,8 +782,14 @@ class TonieboxCurrentTonieSensor(_TbBase):
         return {
             "tonie_id": tonie.get("id"),
             "tonie_type": pi.get("tonieType") or tonie.get("type"),
+            "series": pi.get("series"),
+            "content_title": pi.get("title"),
             "playback_status": pi.get("status"),
-            "image_url": pi.get("imageUrl") or tonie.get("imageUrl"),
+            "image_url": (
+                pi.get("tonieImageUrl")
+                or pi.get("coverUrl")
+                or tonie.get("imageUrl")
+            ),
             "chapters": [
                 {"title": c.get("title"), "seconds": c.get("seconds")}
                 for c in pi.get("chapters", [])

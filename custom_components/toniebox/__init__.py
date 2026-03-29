@@ -686,13 +686,16 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                                 or "content"
                             ).lower()
                             image_url = (
-                                playback_info.get("imageUrl")
+                                playback_info.get("tonieImageUrl")
+                                or playback_info.get("coverUrl")
                                 or placed_tonie.get("imageUrl")
                                 or placed_tonie.get("image_url")
                             )
+                            # API: series = Tonie character name (e.g. "Benjamin Blümchen")
+                            #      title  = content title (longer form)
                             name = (
                                 placed_tonie.get("name")
-                                or playback_info.get("name")
+                                or playback_info.get("series")
                                 or playback_info.get("title")
                                 or placed_id
                             )
