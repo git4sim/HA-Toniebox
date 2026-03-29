@@ -711,8 +711,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             or hh_data["discs"].get(placed_id)
                         )
                         if known:
-                            placed_tonie.setdefault("name", known.get("name"))
-                            placed_tonie.setdefault("imageUrl", known.get("image_url"))
+                            placed_tonie["name"] = placed_tonie.get("name") or known.get("name")
+                            placed_tonie["imageUrl"] = placed_tonie.get("imageUrl") or known.get("image_url")
 
                     # Preserve ICI real-time data across REST polling
                     prev_tb = (
