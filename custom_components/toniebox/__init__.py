@@ -532,12 +532,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # with flexible matching, then supplement with dedicated endpoints.
             try:
                 all_tonies = await self.client.get_creative_tonies(hh_id)
-                _LOGGER.warning(
-                    "[DIAG] get_creative_tonies(%s): %d items. "
-                    "First item keys: %s",
-                    hh_id, len(all_tonies),
-                    list(all_tonies[0].keys()) if all_tonies and isinstance(all_tonies[0], dict) else "n/a",
-                )
+                _LOGGER.debug("get_creative_tonies(%s): %d items", hh_id, len(all_tonies))
                 for tonie in all_tonies:
                     if not isinstance(tonie, dict):
                         continue
@@ -552,8 +547,6 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         or tonie.get("tonieType")
                         or ""
                     ).lower()
-                    _LOGGER.warning("[DIAG] tonie id=%s type=%r tonieType=%r name=%s keys=%s",
-                        t_id, tonie.get("type"), tonie.get("tonieType"), tonie.get("name"), list(tonie.keys()))
 
                     chapters = [
                         {
@@ -619,84 +612,112 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.warning("Could not fetch creative tonies for %s: %s", hh_id, e)
 
-            # ── Content Tonies (dedicated endpoint) ───────────────────────────
-            # GET /households/{hh}/contenttonies is undocumented in the Swagger
-            # but exposed by api.prod.tcs.toys/v2 (not by the CDN proxy).
-            # Supplements the creativetonies list; skips IDs already known.
+            # ── Content Tonies, Discs & Placement via GraphQL ─────────────────
+            # The official API doc states: "We use GraphQL for read-only requests".
+            # The REST list endpoints for content tonies and discs return 404, and
+            # the Toniebox REST response contains no placement data.
+            # All three are available via GraphQL at /v2/graphql.
+            gql_placements: dict[str, dict] = {}  # box_id → placement dict
             try:
-                ct_list = await self.client.get_content_tonies(hh_id)
-                _LOGGER.debug("get_content_tonies(%s): %d items", hh_id, len(ct_list))
-                for tonie in ct_list:
-                    if not isinstance(tonie, dict):
-                        continue
-                    t_id = tonie.get("id", "")
-                    if not t_id or t_id in hh_data["contenttonies"]:
-                        continue
-                    image_url = (
-                        tonie.get("imageUrl")
-                        or tonie.get("image_url")
-                        or tonie.get("image")
-                    )
-                    chapters = [
-                        {
-                            "id": ch.get("id", ""),
-                            "title": ch.get("title", ""),
-                            "seconds": ch.get("seconds", 0),
-                            "transcoding": ch.get("transcoding", False),
+                gql_resp = await self.client.graphql_query("""
+                    {
+                      me {
+                        households {
+                          id
+                          contenttonies {
+                            id
+                            name
+                            imageUrl
+                            locked
+                            language
+                            chapters { id title seconds transcoding }
+                          }
+                          discs {
+                            id
+                            name
+                            imageUrl
+                            locked
+                          }
+                          tonieboxes {
+                            id
+                            placement {
+                              tonie { id name imageUrl type }
+                            }
+                          }
                         }
-                        for ch in tonie.get("chapters", [])
-                        if isinstance(ch, dict)
-                    ]
-                    hh_data["contenttonies"][t_id] = {
-                        "id": t_id,
-                        "name": tonie.get("name", t_id),
-                        "image_url": image_url,
-                        "household_id": hh_id,
-                        "sales_id": tonie.get("salesId") or tonie.get("sales_id"),
-                        "item_id": tonie.get("itemId") or tonie.get("item_id"),
-                        "locked": tonie.get("locked", tonie.get("lock", False)),
-                        "language": tonie.get("language"),
-                        "chapters": chapters,
-                        "chapter_count": len(chapters),
-                        "total_seconds": sum(c["seconds"] for c in chapters),
-                        "transcoding": tonie.get("transcoding", False),
-                        "transcoding_errors": tonie.get("transcodingErrors", []),
-                        "toniebox_id": tonie.get("tonieboxId") or tonie.get("toniebox_id"),
-                        "tune_id": tonie.get("tuneId") or tonie.get("tune_id"),
+                      }
                     }
-            except Exception as e:
-                _LOGGER.warning("[DIAG] get_content_tonies(%s) failed: %s — %s", hh_id, type(e).__name__, e)
-
-            # ── Discs (dedicated endpoint) ─────────────────────────────────────
-            # GET /households/{hh}/discs is also undocumented in Swagger but
-            # exposed by api.prod.tcs.toys/v2.
-            try:
-                disc_list = await self.client.get_discs(hh_id)
-                _LOGGER.debug("get_discs(%s): %d items", hh_id, len(disc_list))
-                for disc in disc_list:
-                    if not isinstance(disc, dict):
+                """)
+                gql_errors = gql_resp.get("errors")
+                if gql_errors:
+                    _LOGGER.debug("GraphQL returned errors: %s", gql_errors)
+                gql_me = (gql_resp.get("data") or {}).get("me") or {}
+                gql_households = gql_me.get("households") or []
+                for gql_hh in gql_households:
+                    if gql_hh.get("id") != hh_id:
                         continue
-                    d_id = disc.get("id", "")
-                    if not d_id or d_id in hh_data["discs"]:
-                        continue
-                    image_url = (
-                        disc.get("imageUrl")
-                        or disc.get("image_url")
-                        or disc.get("image")
-                    )
-                    hh_data["discs"][d_id] = {
-                        "id": d_id,
-                        "name": disc.get("name", d_id),
-                        "image_url": image_url,
-                        "household_id": hh_id,
-                        "sales_id": disc.get("salesId") or disc.get("sales_id"),
-                        "item_id": disc.get("itemId") or disc.get("item_id"),
-                        "locked": disc.get("locked", disc.get("lock", False)),
-                        "language": disc.get("language"),
-                        "toniebox_id": disc.get("tonieboxId") or disc.get("toniebox_id"),
-                    }
+                    # Content Tonies
+                    for tonie in gql_hh.get("contenttonies") or []:
+                        if not isinstance(tonie, dict):
+                            continue
+                        t_id = tonie.get("id", "")
+                        if not t_id or t_id in hh_data["contenttonies"]:
+                            continue
+                        chapters = [
+                            {
+                                "id": ch.get("id", ""),
+                                "title": ch.get("title", ""),
+                                "seconds": ch.get("seconds", 0),
+                                "transcoding": ch.get("transcoding", False),
+                            }
+                            for ch in (tonie.get("chapters") or [])
+                            if isinstance(ch, dict)
+                        ]
+                        hh_data["contenttonies"][t_id] = {
+                            "id": t_id,
+                            "name": tonie.get("name") or t_id,
+                            "image_url": tonie.get("imageUrl"),
+                            "household_id": hh_id,
+                            "locked": tonie.get("locked", False),
+                            "language": tonie.get("language"),
+                            "chapters": chapters,
+                            "chapter_count": len(chapters),
+                            "total_seconds": sum(c["seconds"] for c in chapters),
+                            "transcoding": False,
+                            "transcoding_errors": [],
+                            "tune_id": None,
+                            "sales_id": None,
+                            "item_id": None,
+                            "toniebox_id": None,
+                        }
+                    # Discs
+                    for disc in gql_hh.get("discs") or []:
+                        if not isinstance(disc, dict):
+                            continue
+                        d_id = disc.get("id", "")
+                        if not d_id or d_id in hh_data["discs"]:
+                            continue
+                        hh_data["discs"][d_id] = {
+                            "id": d_id,
+                            "name": disc.get("name") or d_id,
+                            "image_url": disc.get("imageUrl"),
+                            "household_id": hh_id,
+                            "locked": disc.get("locked", False),
+                            "language": None,
+                            "sales_id": None,
+                            "item_id": None,
+                            "toniebox_id": None,
+                        }
+                    # Placement data (applied to tonieboxes after the REST loop)
+                    for gql_box in gql_hh.get("tonieboxes") or []:
+                        if not isinstance(gql_box, dict):
+                            continue
+                        b_id = gql_box.get("id", "")
+                        if b_id:
+                            pl = gql_box.get("placement") or {}
+                            gql_placements[b_id] = pl
             except Exception as e:
-                _LOGGER.warning("[DIAG] get_discs(%s) failed: %s — %s", hh_id, type(e).__name__, e)
+                _LOGGER.debug("GraphQL query failed for %s: %s", hh_id, e)
 
             _LOGGER.info(
                 "household %s: %d creative, %d content, %d discs",
@@ -714,12 +735,10 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     if not b_id:
                         continue
 
-                    placement = box.get("placement") or {}
+                    # REST API does not include placement — use GraphQL data.
+                    # Fall back to whatever the REST response has (usually {}).
+                    placement = gql_placements.get(b_id) or box.get("placement") or {}
                     placed_tonie = placement.get("tonie") or {}
-                    _LOGGER.warning(
-                        "[DIAG] box %s — box keys: %s | placement: %r",
-                        b_id, list(box.keys()), placement,
-                    )
 
                     # Normalize: API may return tonieId/tonie_id/id flat instead of
                     # a nested "tonie" sub-object.  Build a synthetic tonie dict and

@@ -227,6 +227,36 @@ class TonieCloudClient:
         async with self._session.delete(url, headers=self._auth_headers) as resp:
             resp.raise_for_status()
 
+    # ── GraphQL ───────────────────────────────────────────────────────────────
+
+    async def graphql_query(self, query: str, variables: dict | None = None) -> dict:
+        """POST /graphql — execute a GraphQL query.
+
+        Returns the full response dict (with "data" and possibly "errors" keys).
+        Raises on HTTP errors.
+        """
+        await self._ensure_auth()
+        url = f"{_API_BASE}/graphql"
+        payload: dict = {"query": query}
+        if variables:
+            payload["variables"] = variables
+        async with self._session.post(
+            url,
+            json=payload,
+            headers={**self._auth_headers, "Content-Type": "application/json"},
+        ) as resp:
+            if resp.status == 401:
+                await self.authenticate()
+                async with self._session.post(
+                    url,
+                    json=payload,
+                    headers={**self._auth_headers, "Content-Type": "application/json"},
+                ) as r2:
+                    r2.raise_for_status()
+                    return await r2.json()
+            resp.raise_for_status()
+            return await resp.json()
+
     # ── /me ──────────────────────────────────────────────────────────────────
 
     async def get_me(self) -> dict:
