@@ -619,6 +619,26 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # All three are available via GraphQL at /v2/graphql.
             gql_placements: dict[str, dict] = {}  # box_id → placement dict
             try:
+                # Introspection: discover root query fields (logged once at WARNING
+                # level so the real field names are visible in HA logs).
+                try:
+                    intro = await self.client.graphql_query(
+                        "{ __schema { queryType { fields { name } } } }"
+                    )
+                    intro_fields = [
+                        f["name"]
+                        for f in (
+                            (intro.get("data") or {})
+                            .get("__schema", {})
+                            .get("queryType", {})
+                            .get("fields", [])
+                        )
+                        if isinstance(f, dict)
+                    ]
+                    _LOGGER.warning("[GQL-SCHEMA] root query fields: %s", intro_fields)
+                except Exception as ie:
+                    _LOGGER.warning("[GQL-SCHEMA] introspection failed: %s", ie)
+
                 gql_resp = await self.client.graphql_query("""
                     {
                       me {
