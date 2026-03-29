@@ -628,6 +628,34 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     placement = box.get("placement") or {}
                     placed_tonie = placement.get("tonie") or {}
 
+                    # Normalize: API may return tonieId/tonie_id/id flat instead of
+                    # a nested "tonie" sub-object.  Build a synthetic tonie dict and
+                    # inject it back so all downstream code can use placement["tonie"].
+                    if not placed_tonie.get("id"):
+                        flat_id = (
+                            placement.get("tonieId")
+                            or placement.get("tonie_id")
+                            or placement.get("id")
+                        )
+                        if flat_id:
+                            placed_tonie = {
+                                "id": flat_id,
+                                "name": (
+                                    placement.get("tonieName")
+                                    or placement.get("name")
+                                ),
+                                "imageUrl": (
+                                    placement.get("tonieImageUrl")
+                                    or placement.get("imageUrl")
+                                    or placement.get("image_url")
+                                ),
+                                "type": (
+                                    placement.get("tonieType")
+                                    or placement.get("type")
+                                ),
+                            }
+                            placement = {**placement, "tonie": placed_tonie}
+
                     # Playback info — only fetch when a tonie is actively placed
                     playback_info: dict = {}
                     if placed_tonie and placed_tonie.get("id"):
@@ -658,13 +686,16 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                                 or "content"
                             ).lower()
                             image_url = (
-                                playback_info.get("imageUrl")
+                                playback_info.get("tonieImageUrl")
+                                or playback_info.get("coverUrl")
                                 or placed_tonie.get("imageUrl")
                                 or placed_tonie.get("image_url")
                             )
+                            # API: series = Tonie character name (e.g. "Benjamin Blümchen")
+                            #      title  = content title (longer form)
                             name = (
                                 placed_tonie.get("name")
-                                or playback_info.get("name")
+                                or playback_info.get("series")
                                 or playback_info.get("title")
                                 or placed_id
                             )
@@ -711,8 +742,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             or hh_data["discs"].get(placed_id)
                         )
                         if known:
-                            placed_tonie.setdefault("name", known.get("name"))
-                            placed_tonie.setdefault("imageUrl", known.get("image_url"))
+                            placed_tonie["name"] = placed_tonie.get("name") or known.get("name")
+                            placed_tonie["imageUrl"] = placed_tonie.get("imageUrl") or known.get("image_url")
 
                     # Preserve ICI real-time data across REST polling
                     prev_tb = (

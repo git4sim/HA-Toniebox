@@ -117,6 +117,25 @@ async def async_setup_entry(
 
     async_add_entities(entities)
 
+    # ── Dynamic registration for Content Tonies ───────────────────────────────
+    known_ct_ids: set[tuple[str, str]] = set()
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            known_ct_ids.add((hh_id, ct_id))
+
+    @callback
+    def _async_add_new_select_entities() -> None:
+        new_entities: list = []
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for ct_id in hh.get("contenttonies", {}):
+                if (hh_id, ct_id) not in known_ct_ids:
+                    known_ct_ids.add((hh_id, ct_id))
+                    new_entities.append(ContentTonieLanguageSelect(coordinator, hh_id, ct_id))
+        if new_entities:
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_select_entities))
+
 
 # ── Toniebox enum selects ─────────────────────────────────────────────────────
 

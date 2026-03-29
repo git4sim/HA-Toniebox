@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -55,6 +55,25 @@ async def async_setup_entry(
             entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
 
     async_add_entities(entities)
+
+    # ── Dynamic registration for Content Tonies ───────────────────────────────
+    known_ct_ids: set[tuple[str, str]] = set()
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            known_ct_ids.add((hh_id, ct_id))
+
+    @callback
+    def _async_add_new_button_entities() -> None:
+        new_entities: list = []
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for ct_id in hh.get("contenttonies", {}):
+                if (hh_id, ct_id) not in known_ct_ids:
+                    known_ct_ids.add((hh_id, ct_id))
+                    new_entities.append(ContentTonieTuneRemoveButton(coordinator, hh_id, ct_id))
+        if new_entities:
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_button_entities))
 
 
 # ── Household refresh button (on Hub device) ──────────────────────────────────

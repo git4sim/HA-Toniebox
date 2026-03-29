@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -104,6 +104,40 @@ async def async_setup_entry(
             ]
 
     async_add_entities(entities)
+
+    # ── Dynamic registration for Content Tonies and Discs ────────────────────
+    known_ct_ids: set[tuple[str, str]] = set()
+    known_disc_ids: set[tuple[str, str]] = set()
+    for hh_id, hh in coordinator.data.get("households", {}).items():
+        for ct_id in hh.get("contenttonies", {}):
+            known_ct_ids.add((hh_id, ct_id))
+        for disc_id in hh.get("discs", {}):
+            known_disc_ids.add((hh_id, disc_id))
+
+    @callback
+    def _async_add_new_sensor_entities() -> None:
+        new_entities: list = []
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for ct_id in hh.get("contenttonies", {}):
+                if (hh_id, ct_id) not in known_ct_ids:
+                    known_ct_ids.add((hh_id, ct_id))
+                    new_entities += [
+                        ContentTonieCurrentBoxSensor(coordinator, hh_id, ct_id),
+                        ContentTonieChapterCountSensor(coordinator, hh_id, ct_id),
+                        ContentTonieDurationSensor(coordinator, hh_id, ct_id),
+                        ContentTonieSalesSensor(coordinator, hh_id, ct_id),
+                    ]
+            for disc_id in hh.get("discs", {}):
+                if (hh_id, disc_id) not in known_disc_ids:
+                    known_disc_ids.add((hh_id, disc_id))
+                    new_entities += [
+                        DiscCurrentBoxSensor(coordinator, hh_id, disc_id),
+                        DiscSalesSensor(coordinator, hh_id, disc_id),
+                    ]
+        if new_entities:
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new_sensor_entities))
 
 
 # ── Base ──────────────────────────────────────────────────────────────────────
@@ -685,7 +719,33 @@ class TonieboxCurrentTonieSensor(_TbBase):
 
     @property
     def _placed_tonie(self) -> dict:
-        return self._placement.get("tonie") or {}
+        placement = self._placement
+        tonie = placement.get("tonie") or {}
+        if tonie.get("id"):
+            return tonie
+        # Fallback: flat placement (tonieId / id) that __init__ may not have
+        # had a chance to normalise yet (e.g. first read before coordinator run).
+        flat_id = (
+            placement.get("tonieId")
+            or placement.get("tonie_id")
+            or placement.get("id")
+        )
+        if flat_id:
+            hh_data = self.coordinator.data.get("households", {}).get(self._hh_id, {})
+            known = (
+                hh_data.get("creativetonies", {}).get(flat_id)
+                or hh_data.get("contenttonies", {}).get(flat_id)
+                or hh_data.get("discs", {}).get(flat_id)
+            )
+            if known:
+                return {
+                    "id": flat_id,
+                    "name": known.get("name"),
+                    "imageUrl": known.get("image_url"),
+                    "type": known.get("type"),
+                }
+            return {"id": flat_id}
+        return {}
 
     @property
     def _playback(self) -> dict:
@@ -694,12 +754,23 @@ class TonieboxCurrentTonieSensor(_TbBase):
     @property
     def native_value(self) -> str | None:
         tonie = self._placed_tonie
-        return tonie.get("name") or tonie.get("id") or None
+        pi = self._playback
+        # API: series = public Tonie character name (e.g. "Benjamin Blümchen")
+        #      title  = content title (e.g. "Benjamin Blümchen und der Weihnachtsmann")
+        return (
+            pi.get("series")
+            or tonie.get("name")
+            or pi.get("title")
+            or tonie.get("id")
+            or None
+        )
 
     @property
     def entity_picture(self) -> str | None:
+        # API: tonieImageUrl = Tonie thumbnail, coverUrl = content cover art
         return (
-            self._playback.get("imageUrl")
+            self._playback.get("tonieImageUrl")
+            or self._playback.get("coverUrl")
             or self._placed_tonie.get("imageUrl")
             or self._placed_tonie.get("image_url")
         )
@@ -710,9 +781,15 @@ class TonieboxCurrentTonieSensor(_TbBase):
         pi = self._playback
         return {
             "tonie_id": tonie.get("id"),
-            "tonie_type": pi.get("tonieType"),
+            "tonie_type": pi.get("tonieType") or tonie.get("type"),
+            "series": pi.get("series"),
+            "content_title": pi.get("title"),
             "playback_status": pi.get("status"),
-            "image_url": pi.get("imageUrl") or tonie.get("imageUrl"),
+            "image_url": (
+                pi.get("tonieImageUrl")
+                or pi.get("coverUrl")
+                or tonie.get("imageUrl")
+            ),
             "chapters": [
                 {"title": c.get("title"), "seconds": c.get("seconds")}
                 for c in pi.get("chapters", [])
