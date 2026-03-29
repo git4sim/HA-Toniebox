@@ -256,7 +256,7 @@ class TonieCloudClient:
                     return await r2.json()
             if not resp.ok:
                 body = await resp.text()
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "GraphQL HTTP %s — body: %.500s", resp.status, body
                 )
                 resp.raise_for_status()

@@ -619,51 +619,32 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # All three are available via GraphQL at /v2/graphql.
             gql_placements: dict[str, dict] = {}  # box_id → placement dict
             try:
-                # Introspection: discover root query fields (logged once at WARNING
-                # level so the real field names are visible in HA logs).
-                try:
-                    intro = await self.client.graphql_query(
-                        "{ __schema { queryType { fields { name } } } }"
-                    )
-                    intro_fields = [
-                        f["name"]
-                        for f in (
-                            (intro.get("data") or {})
-                            .get("__schema", {})
-                            .get("queryType", {})
-                            .get("fields", [])
-                        )
-                        if isinstance(f, dict)
-                    ]
-                    _LOGGER.warning("[GQL-SCHEMA] root query fields: %s", intro_fields)
-                except Exception as ie:
-                    _LOGGER.warning("[GQL-SCHEMA] introspection failed: %s", ie)
-
+                # The GraphQL API uses top-level "my*" queries (not nested under me).
+                # myContentTonies / myDiscs / myTonieboxes cover all households the
+                # user belongs to; we filter by householdId below.
                 gql_resp = await self.client.graphql_query("""
                     {
-                      me {
-                        households {
-                          id
-                          contenttonies {
-                            id
-                            name
-                            imageUrl
-                            locked
-                            language
-                            chapters { id title seconds transcoding }
-                          }
-                          discs {
-                            id
-                            name
-                            imageUrl
-                            locked
-                          }
-                          tonieboxes {
-                            id
-                            placement {
-                              tonie { id name imageUrl type }
-                            }
-                          }
+                      myContentTonies {
+                        id
+                        householdId
+                        name
+                        imageUrl
+                        locked
+                        language
+                        chapters { id title seconds transcoding }
+                      }
+                      myDiscs {
+                        id
+                        householdId
+                        name
+                        imageUrl
+                        locked
+                      }
+                      myTonieboxes {
+                        id
+                        householdId
+                        placement {
+                          tonie { id name imageUrl type }
                         }
                       }
                     }
@@ -671,71 +652,76 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 gql_errors = gql_resp.get("errors")
                 if gql_errors:
                     _LOGGER.debug("GraphQL returned errors: %s", gql_errors)
-                gql_me = (gql_resp.get("data") or {}).get("me") or {}
-                gql_households = gql_me.get("households") or []
-                for gql_hh in gql_households:
-                    if gql_hh.get("id") != hh_id:
+                gql_data = gql_resp.get("data") or {}
+
+                # Content Tonies
+                for tonie in gql_data.get("myContentTonies") or []:
+                    if not isinstance(tonie, dict):
                         continue
-                    # Content Tonies
-                    for tonie in gql_hh.get("contenttonies") or []:
-                        if not isinstance(tonie, dict):
-                            continue
-                        t_id = tonie.get("id", "")
-                        if not t_id or t_id in hh_data["contenttonies"]:
-                            continue
-                        chapters = [
-                            {
-                                "id": ch.get("id", ""),
-                                "title": ch.get("title", ""),
-                                "seconds": ch.get("seconds", 0),
-                                "transcoding": ch.get("transcoding", False),
-                            }
-                            for ch in (tonie.get("chapters") or [])
-                            if isinstance(ch, dict)
-                        ]
-                        hh_data["contenttonies"][t_id] = {
-                            "id": t_id,
-                            "name": tonie.get("name") or t_id,
-                            "image_url": tonie.get("imageUrl"),
-                            "household_id": hh_id,
-                            "locked": tonie.get("locked", False),
-                            "language": tonie.get("language"),
-                            "chapters": chapters,
-                            "chapter_count": len(chapters),
-                            "total_seconds": sum(c["seconds"] for c in chapters),
-                            "transcoding": False,
-                            "transcoding_errors": [],
-                            "tune_id": None,
-                            "sales_id": None,
-                            "item_id": None,
-                            "toniebox_id": None,
+                    if tonie.get("householdId") != hh_id:
+                        continue
+                    t_id = tonie.get("id", "")
+                    if not t_id or t_id in hh_data["contenttonies"]:
+                        continue
+                    chapters = [
+                        {
+                            "id": ch.get("id", ""),
+                            "title": ch.get("title", ""),
+                            "seconds": ch.get("seconds", 0),
+                            "transcoding": ch.get("transcoding", False),
                         }
-                    # Discs
-                    for disc in gql_hh.get("discs") or []:
-                        if not isinstance(disc, dict):
-                            continue
-                        d_id = disc.get("id", "")
-                        if not d_id or d_id in hh_data["discs"]:
-                            continue
-                        hh_data["discs"][d_id] = {
-                            "id": d_id,
-                            "name": disc.get("name") or d_id,
-                            "image_url": disc.get("imageUrl"),
-                            "household_id": hh_id,
-                            "locked": disc.get("locked", False),
-                            "language": None,
-                            "sales_id": None,
-                            "item_id": None,
-                            "toniebox_id": None,
-                        }
-                    # Placement data (applied to tonieboxes after the REST loop)
-                    for gql_box in gql_hh.get("tonieboxes") or []:
-                        if not isinstance(gql_box, dict):
-                            continue
-                        b_id = gql_box.get("id", "")
-                        if b_id:
-                            pl = gql_box.get("placement") or {}
-                            gql_placements[b_id] = pl
+                        for ch in (tonie.get("chapters") or [])
+                        if isinstance(ch, dict)
+                    ]
+                    hh_data["contenttonies"][t_id] = {
+                        "id": t_id,
+                        "name": tonie.get("name") or t_id,
+                        "image_url": tonie.get("imageUrl"),
+                        "household_id": hh_id,
+                        "locked": tonie.get("locked", False),
+                        "language": tonie.get("language"),
+                        "chapters": chapters,
+                        "chapter_count": len(chapters),
+                        "total_seconds": sum(c["seconds"] for c in chapters),
+                        "transcoding": False,
+                        "transcoding_errors": [],
+                        "tune_id": None,
+                        "sales_id": None,
+                        "item_id": None,
+                        "toniebox_id": None,
+                    }
+
+                # Discs
+                for disc in gql_data.get("myDiscs") or []:
+                    if not isinstance(disc, dict):
+                        continue
+                    if disc.get("householdId") != hh_id:
+                        continue
+                    d_id = disc.get("id", "")
+                    if not d_id or d_id in hh_data["discs"]:
+                        continue
+                    hh_data["discs"][d_id] = {
+                        "id": d_id,
+                        "name": disc.get("name") or d_id,
+                        "image_url": disc.get("imageUrl"),
+                        "household_id": hh_id,
+                        "locked": disc.get("locked", False),
+                        "language": None,
+                        "sales_id": None,
+                        "item_id": None,
+                        "toniebox_id": None,
+                    }
+
+                # Placement data per Toniebox (applied after the REST loop)
+                for gql_box in gql_data.get("myTonieboxes") or []:
+                    if not isinstance(gql_box, dict):
+                        continue
+                    if gql_box.get("householdId") != hh_id:
+                        continue
+                    b_id = gql_box.get("id", "")
+                    if b_id:
+                        gql_placements[b_id] = gql_box.get("placement") or {}
+
             except Exception as e:
                 _LOGGER.debug("GraphQL query failed for %s: %s", hh_id, e)
 
