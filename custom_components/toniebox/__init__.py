@@ -525,12 +525,11 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 "memberships": [],
             }
 
-            # All Tonies — GET /households/{hh}/creativetonies returns ALL tonie types.
-            # The API has no separate list endpoint for content tonies or discs.
-            # Items are split into buckets by the "type" field:
-            #   "creative" (or absent)  → creativetonies
-            #   "content"               → contenttonies
-            #   "disc"                  → discs
+            # ── Creative Tonies ───────────────────────────────────────────────
+            # GET /households/{hh}/creativetonies returns creative tonies.
+            # In practice the API may also return content tonies / discs here
+            # with an undocumented "type" field — handle that opportunistically
+            # with flexible matching, then supplement with dedicated endpoints.
             try:
                 all_tonies = await self.client.get_creative_tonies(hh_id)
                 _LOGGER.debug(
@@ -543,8 +542,14 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     if not t_id:
                         continue
 
-                    tonie_type = (tonie.get("type") or "creative").lower()
-                    _LOGGER.debug("tonie %s type=%s name=%s", t_id, tonie_type, tonie.get("name"))
+                    # Flexible type detection — the field is undocumented and
+                    # its values vary.  Match substrings case-insensitively.
+                    tonie_type_raw = (
+                        tonie.get("type")
+                        or tonie.get("tonieType")
+                        or ""
+                    ).lower()
+                    _LOGGER.debug("tonie %s type=%r name=%s", t_id, tonie_type_raw, tonie.get("name"))
 
                     chapters = [
                         {
@@ -562,7 +567,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         or tonie.get("image")
                     )
 
-                    if tonie_type == "disc":
+                    if "disc" in tonie_type_raw or tonie_type_raw in ("tonieplay",):
                         hh_data["discs"][t_id] = {
                             "id": t_id,
                             "name": tonie.get("name", t_id),
@@ -574,7 +579,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             "language": tonie.get("language"),
                             "toniebox_id": tonie.get("tonieboxId") or tonie.get("toniebox_id"),
                         }
-                    elif tonie_type == "content":
+                    elif "content" in tonie_type_raw:
                         hh_data["contenttonies"][t_id] = {
                             "id": t_id,
                             "name": tonie.get("name", t_id),
@@ -593,7 +598,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             "tune_id": tonie.get("tuneId") or tonie.get("tune_id"),
                         }
                     else:
-                        # "creative" or unknown type
+                        # "creative" or unknown type → creative tonie bucket
                         hh_data["creativetonies"][t_id] = {
                             "id": t_id,
                             "name": tonie.get("name", t_id),
@@ -607,15 +612,95 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             "transcoding": tonie.get("transcoding", False),
                         }
 
-                _LOGGER.info(
-                    "household %s: %d creative, %d content, %d discs",
-                    hh_id,
-                    len(hh_data["creativetonies"]),
-                    len(hh_data["contenttonies"]),
-                    len(hh_data["discs"]),
-                )
             except Exception as e:
-                _LOGGER.warning("Could not fetch tonies for %s: %s", hh_id, e)
+                _LOGGER.warning("Could not fetch creative tonies for %s: %s", hh_id, e)
+
+            # ── Content Tonies (dedicated endpoint) ───────────────────────────
+            # GET /households/{hh}/contenttonies is undocumented in the Swagger
+            # but exposed by api.prod.tcs.toys/v2 (not by the CDN proxy).
+            # Supplements the creativetonies list; skips IDs already known.
+            try:
+                ct_list = await self.client.get_content_tonies(hh_id)
+                _LOGGER.debug("get_content_tonies(%s): %d items", hh_id, len(ct_list))
+                for tonie in ct_list:
+                    if not isinstance(tonie, dict):
+                        continue
+                    t_id = tonie.get("id", "")
+                    if not t_id or t_id in hh_data["contenttonies"]:
+                        continue
+                    image_url = (
+                        tonie.get("imageUrl")
+                        or tonie.get("image_url")
+                        or tonie.get("image")
+                    )
+                    chapters = [
+                        {
+                            "id": ch.get("id", ""),
+                            "title": ch.get("title", ""),
+                            "seconds": ch.get("seconds", 0),
+                            "transcoding": ch.get("transcoding", False),
+                        }
+                        for ch in tonie.get("chapters", [])
+                        if isinstance(ch, dict)
+                    ]
+                    hh_data["contenttonies"][t_id] = {
+                        "id": t_id,
+                        "name": tonie.get("name", t_id),
+                        "image_url": image_url,
+                        "household_id": hh_id,
+                        "sales_id": tonie.get("salesId") or tonie.get("sales_id"),
+                        "item_id": tonie.get("itemId") or tonie.get("item_id"),
+                        "locked": tonie.get("locked", tonie.get("lock", False)),
+                        "language": tonie.get("language"),
+                        "chapters": chapters,
+                        "chapter_count": len(chapters),
+                        "total_seconds": sum(c["seconds"] for c in chapters),
+                        "transcoding": tonie.get("transcoding", False),
+                        "transcoding_errors": tonie.get("transcodingErrors", []),
+                        "toniebox_id": tonie.get("tonieboxId") or tonie.get("toniebox_id"),
+                        "tune_id": tonie.get("tuneId") or tonie.get("tune_id"),
+                    }
+            except Exception as e:
+                _LOGGER.debug("get_content_tonies(%s) not available: %s", hh_id, e)
+
+            # ── Discs (dedicated endpoint) ─────────────────────────────────────
+            # GET /households/{hh}/discs is also undocumented in Swagger but
+            # exposed by api.prod.tcs.toys/v2.
+            try:
+                disc_list = await self.client.get_discs(hh_id)
+                _LOGGER.debug("get_discs(%s): %d items", hh_id, len(disc_list))
+                for disc in disc_list:
+                    if not isinstance(disc, dict):
+                        continue
+                    d_id = disc.get("id", "")
+                    if not d_id or d_id in hh_data["discs"]:
+                        continue
+                    image_url = (
+                        disc.get("imageUrl")
+                        or disc.get("image_url")
+                        or disc.get("image")
+                    )
+                    hh_data["discs"][d_id] = {
+                        "id": d_id,
+                        "name": disc.get("name", d_id),
+                        "image_url": image_url,
+                        "household_id": hh_id,
+                        "sales_id": disc.get("salesId") or disc.get("sales_id"),
+                        "item_id": disc.get("itemId") or disc.get("item_id"),
+                        "locked": disc.get("locked", disc.get("lock", False)),
+                        "language": disc.get("language"),
+                        "toniebox_id": disc.get("tonieboxId") or disc.get("toniebox_id"),
+                    }
+            except Exception as e:
+                _LOGGER.debug("get_discs(%s) not available: %s", hh_id, e)
+
+            _LOGGER.info(
+                "household %s: %d creative, %d content, %d discs",
+                hh_id,
+                len(hh_data["creativetonies"]),
+                len(hh_data["contenttonies"]),
+                len(hh_data["discs"]),
+            )
 
             # Tonieboxes
             try:
