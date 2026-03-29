@@ -619,32 +619,43 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # All three are available via GraphQL at /v2/graphql.
             gql_placements: dict[str, dict] = {}  # box_id → placement dict
             try:
-                # The GraphQL API uses top-level "my*" queries (not nested under me).
-                # myContentTonies / myDiscs / myTonieboxes cover all households the
-                # user belongs to; we filter by householdId below.
+                # The GraphQL API uses Relay-style pagination: each "my*" query
+                # returns a Connection type with edges[].node instead of a plain list.
                 gql_resp = await self.client.graphql_query("""
                     {
                       myContentTonies {
-                        id
-                        householdId
-                        name
-                        imageUrl
-                        locked
-                        language
-                        chapters { id title seconds transcoding }
+                        edges {
+                          node {
+                            id
+                            householdId
+                            name
+                            imageUrl
+                            locked
+                            language
+                            chapters { id title seconds transcoding }
+                          }
+                        }
                       }
                       myDiscs {
-                        id
-                        householdId
-                        name
-                        imageUrl
-                        locked
+                        edges {
+                          node {
+                            id
+                            householdId
+                            name
+                            imageUrl
+                            locked
+                          }
+                        }
                       }
                       myTonieboxes {
-                        id
-                        householdId
-                        placement {
-                          tonie { id name imageUrl type }
+                        edges {
+                          node {
+                            id
+                            householdId
+                            placement {
+                              tonie { id name imageUrl type }
+                            }
+                          }
                         }
                       }
                     }
@@ -654,10 +665,17 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     _LOGGER.debug("GraphQL returned errors: %s", gql_errors)
                 gql_data = gql_resp.get("data") or {}
 
+                def _relay_nodes(connection) -> list:
+                    """Extract node list from a Relay Connection or plain list."""
+                    if isinstance(connection, list):
+                        return connection
+                    if isinstance(connection, dict):
+                        edges = connection.get("edges") or []
+                        return [e["node"] for e in edges if isinstance(e, dict) and isinstance(e.get("node"), dict)]
+                    return []
+
                 # Content Tonies
-                for tonie in gql_data.get("myContentTonies") or []:
-                    if not isinstance(tonie, dict):
-                        continue
+                for tonie in _relay_nodes(gql_data.get("myContentTonies")):
                     if tonie.get("householdId") != hh_id:
                         continue
                     t_id = tonie.get("id", "")
@@ -692,9 +710,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     }
 
                 # Discs
-                for disc in gql_data.get("myDiscs") or []:
-                    if not isinstance(disc, dict):
-                        continue
+                for disc in _relay_nodes(gql_data.get("myDiscs")):
                     if disc.get("householdId") != hh_id:
                         continue
                     d_id = disc.get("id", "")
@@ -713,9 +729,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     }
 
                 # Placement data per Toniebox (applied after the REST loop)
-                for gql_box in gql_data.get("myTonieboxes") or []:
-                    if not isinstance(gql_box, dict):
-                        continue
+                for gql_box in _relay_nodes(gql_data.get("myTonieboxes")):
                     if gql_box.get("householdId") != hh_id:
                         continue
                     b_id = gql_box.get("id", "")
