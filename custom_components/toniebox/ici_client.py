@@ -50,6 +50,7 @@ class TonieboxIciClient:
         self._boxes: list[dict] = []
         self._user_uuid: str | None = None
         self._last_token: str | None = None
+        self._auth_failed = False
 
     @property
     def connected(self) -> bool:
@@ -89,6 +90,7 @@ class TonieboxIciClient:
             self._client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
             self._client.tls_insecure_set(False)
             self._client.username_pw_set(username=user_uuid, password=access_token)
+            self._client.reconnect_delay_set(min_delay=5, max_delay=120)
             self._client.on_connect = self._on_connect
             self._client.on_message = self._on_message
             self._client.on_disconnect = self._on_disconnect
@@ -124,16 +126,39 @@ class TonieboxIciClient:
         """Called by TonieCloudClient when the token is refreshed."""
         if not self._user_uuid or not self._loop:
             return
+        # Clear any previous auth failure so the reconnect is attempted.
+        self._auth_failed = False
         asyncio.run_coroutine_threadsafe(self.reconnect(new_token), self._loop)
 
     # ── paho-mqtt callbacks (called from network thread) ──────────────────────
+
+    # Reason code strings that indicate an authentication/authorisation failure.
+    _AUTH_FAILURE_CODES = frozenset({
+        "Bad user name or password",
+        "Not authorized",
+        "Not Authorized",
+    })
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         rc_str = str(reason_code)
         if rc_str == "Success":
             self._connected = True
+            self._auth_failed = False
             _LOGGER.info("ICI MQTT connected")
             self._subscribe_all()
+        elif rc_str in self._AUTH_FAILURE_CODES:
+            self._connected = False
+            if not self._auth_failed:
+                self._auth_failed = True
+                _LOGGER.warning(
+                    "ICI MQTT authentication failed (%s). "
+                    "Reconnection suspended until the access token is refreshed.",
+                    rc_str,
+                )
+                # Stop paho's internal reconnect loop to prevent log flooding.
+                # disconnect() must not be called from this thread, so schedule it.
+                if self._loop:
+                    asyncio.run_coroutine_threadsafe(self.disconnect(), self._loop)
         else:
             self._connected = False
             _LOGGER.warning("ICI MQTT connection failed: %s", rc_str)
@@ -141,6 +166,9 @@ class TonieboxIciClient:
     def _on_disconnect(self, client, userdata, flags, reason_code, properties):
         self._connected = False
         _LOGGER.debug("ICI MQTT disconnected: %s", reason_code)
+        # Don't reconnect on auth failure — wait for on_token_refreshed() to resume.
+        if self._auth_failed:
+            return
         # Schedule reconnect unless we intentionally disconnected (client set to None)
         if self._client and self._loop and self._last_token:
             _LOGGER.debug("ICI MQTT scheduling reconnect after unexpected disconnect")
