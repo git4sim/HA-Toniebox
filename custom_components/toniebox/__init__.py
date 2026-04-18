@@ -433,17 +433,21 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         updated = False
 
         if subtopic == ICI_TOPIC_BATTERY and isinstance(payload, dict):
-            tb["battery"] = {
+            battery = {
                 "percent": payload.get("percent"),
                 "raw": payload.get("raw"),
                 "status": payload.get("status"),
             }
+            tb["battery"] = battery
+            tb["last_battery"] = battery.copy()
             updated = True
 
         elif subtopic == ICI_TOPIC_ONLINE and isinstance(payload, dict):
             state = payload.get("onlineState")
             if state:
                 tb["online_state"] = state
+                if state == "connected":
+                    tb["last_online_at"] = datetime.now(timezone.utc)
                 updated = True
 
         elif subtopic == ICI_TOPIC_HEADPHONES and isinstance(payload, dict):
@@ -905,6 +909,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         "online_state": effective_online,
                         # ICI real-time data (preserved across REST polling)
                         "battery": prev_tb.get("battery"),
+                        "last_battery": prev_tb.get("last_battery"),
+                        "last_online_at": prev_tb.get("last_online_at"),
                         "headphones": prev_tb.get("headphones"),
                         "offline_mode": box.get("offlineMode", False),
                         "firmware_version": box.get("firmwareVersion"),
