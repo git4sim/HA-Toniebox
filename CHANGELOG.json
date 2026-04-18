@@ -1,0 +1,38 @@
+[
+  {
+    "version": "3.7.7",
+    "date": "2026-04-18",
+    "changes": {
+      "added": [
+        "sensor 'Letzte Batterie' (last_battery): zeigt den letzten bekannten Ladestand der TNG-Box, auch wenn die Box offline ist — bleibt über HA-Neustarts erhalten (RestoreEntity)",
+        "sensor 'Letzter Batteriestatus' (last_battery_status): zeigt den letzten bekannten Lade-Status (charging/discharging), auch im Offline-Zustand",
+        "sensor 'Zuletzt online' (last_online): Timestamp der letzten Cloud-Verbindung der TNG-Box (wird gesetzt sobald online_state → 'connected' via ICI-MQTT eintrifft)",
+        "last_battery und last_online_at werden über REST-Poll-Zyklen im Coordinator persistiert"
+      ],
+      "changed": [
+        "sensor 'Batterie' umbenannt zu 'Aktuelle Batterie' (zeigt weiterhin 'Unbekannt' wenn offline)",
+        "sensor 'Batteriestatus' umbenannt zu 'Aktueller Batteriestatus' (zeigt weiterhin 'Unbekannt' wenn offline)",
+        "Übersetzungen aktualisiert: de, en, es, fr, it"
+      ]
+    }
+  },
+  {
+    "version": "3.7.5",
+    "date": "2026-04-12",
+    "changes": {
+      "fixed": [
+        "Stabilitätsfix nach GraphQL-Umstellung"
+      ]
+    }
+  },
+  {
+    "version": "3.7.4",
+    "date": "2026-04-12",
+    "changes": {
+      "fixed": [
+        "GraphQL Relay-Paginierung (edges/node) für myContentTonies, myDiscs und myTonieboxes korrigiert",
+        "GraphQL-Query auf korrekte Endpunkte myContentTonies/myDiscs/myTonieboxes umgestellt"
+      ]
+    }
+  }
+]

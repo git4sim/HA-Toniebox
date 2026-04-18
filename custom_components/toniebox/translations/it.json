@@ -209,8 +209,11 @@
       "current_tonie": {
         "name": "Figura attuale"
       },
-      "battery": {"name": "Batteria"},
-      "battery_status": {"name": "Stato batteria"},
+      "battery": {"name": "Batteria attuale"},
+      "battery_status": {"name": "Stato batteria attuale"},
+      "last_battery": {"name": "Ultima batteria"},
+      "last_battery_status": {"name": "Ultimo stato batteria"},
+      "last_online": {"name": "Ultima volta online"},
       "audio_output": {"name": "Uscita audio"},
       "headphones_battery": {"name": "Batteria cuffie"},
       "headphones_color": {"name": "Colore"}

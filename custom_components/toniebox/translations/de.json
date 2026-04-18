@@ -163,8 +163,11 @@
       "free_minutes": {"name": "Freie Zeit"},
       "current_box": {"name": "Aktuelle Box"},
       "sales_id": {"name": "Serien-ID"},
-      "battery": {"name": "Batterie"},
-      "battery_status": {"name": "Batteriestatus"},
+      "battery": {"name": "Aktuelle Batterie"},
+      "battery_status": {"name": "Aktueller Batteriestatus"},
+      "last_battery": {"name": "Letzte Batterie"},
+      "last_battery_status": {"name": "Letzter Batteriestatus"},
+      "last_online": {"name": "Zuletzt online"},
       "audio_output": {"name": "Audioausgabe"},
       "headphones_battery": {"name": "Kopfhörer-Batterie"},
       "headphones_color": {"name": "Farbe"}

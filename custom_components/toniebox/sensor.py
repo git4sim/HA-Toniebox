@@ -73,6 +73,9 @@ async def async_setup_entry(
                 entities += [
                     TonieboxBatterySensor(coordinator, hh_id, tb_id),
                     TonieboxBatteryStatusSensor(coordinator, hh_id, tb_id),
+                    TonieboxLastBatterySensor(coordinator, hh_id, tb_id),
+                    TonieboxLastBatteryStatusSensor(coordinator, hh_id, tb_id),
+                    TonieboxLastOnlineSensor(coordinator, hh_id, tb_id),
                     HeadphonesTypeSensor(coordinator, hh_id, tb_id),
                     HeadphonesBatterySensor(coordinator, hh_id, tb_id),
                     HeadphonesColorSensor(coordinator, hh_id, tb_id),
@@ -482,6 +485,73 @@ class TonieboxBatteryStatusSensor(_TbIciBase):
         if isinstance(battery, dict):
             return battery.get("status")
         return self._restored_state
+
+
+class TonieboxLastBatterySensor(_TbIciBase):
+    """Last known battery level when the TNG Toniebox was online."""
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "%"
+    _attr_icon = "mdi:battery-clock"
+    _attr_translation_key = "last_battery"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_last_battery"
+
+    @property
+    def native_value(self):
+        last = self._tb.get("last_battery")
+        if isinstance(last, dict) and last.get("percent") is not None:
+            return last["percent"]
+        if self._restored_state is not None:
+            try:
+                return int(self._restored_state)
+            except (ValueError, TypeError):
+                pass
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        last = self._tb.get("last_battery")
+        if isinstance(last, dict):
+            return {"raw": last.get("raw"), "status": last.get("status")}
+        return self._restored_attributes if self._restored_attributes else {}
+
+
+class TonieboxLastBatteryStatusSensor(_TbIciBase):
+    """Last known charging status when the TNG Toniebox was online."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:battery-charging-outline"
+    _attr_translation_key = "last_battery_status"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_last_battery_status"
+
+    @property
+    def native_value(self):
+        last = self._tb.get("last_battery")
+        if isinstance(last, dict):
+            return last.get("status")
+        return self._restored_state
+
+
+class TonieboxLastOnlineSensor(_TbBase):
+    """Timestamp of the last time the TNG Toniebox connected to the cloud."""
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-check-outline"
+    _attr_translation_key = "last_online"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_last_online"
+
+    @property
+    def native_value(self):
+        return self._tb.get("last_online_at")
 
 
 class _HeadphonesBase(_TbIciBase):
