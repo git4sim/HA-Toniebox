@@ -129,6 +129,11 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `sensor.<toniebox>_firmware` | Current firmware version |
 | `sensor.<toniebox>_last_seen` | Timestamp of last connection |
 | `sensor.<toniebox>_online_status` | API online status (connected / offline / unknown) |
+| `sensor.<toniebox>_current_battery` | Live battery level — unknown when offline (TNG only) |
+| `sensor.<toniebox>_current_battery_status` | Live charging status — unknown when offline (TNG only) |
+| `sensor.<toniebox>_last_battery` | Last known battery level while online (TNG only) |
+| `sensor.<toniebox>_last_battery_status` | Last known charging status while online (TNG only) |
+| `sensor.<toniebox>_last_online` | Timestamp of last cloud connection (TNG only) |
 | `sensor.<toniebox>_generation` | Model generation (classic / rosered / tng) |
 | `sensor.<toniebox>_features` | Supported features |
 | `sensor.<toniebox>_timezone` | Configured timezone |
@@ -521,6 +526,11 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `sensor.<toniebox>_firmware` | Aktuelle Firmware-Version |
 | `sensor.<toniebox>_zuletzt_gesehen` | Zeitstempel der letzten Verbindung |
 | `sensor.<toniebox>_online_status` | API Online-Status (connected / offline / unknown) |
+| `sensor.<toniebox>_aktuelle_batterie` | Live-Ladestand — Unbekannt wenn offline (nur TNG) |
+| `sensor.<toniebox>_aktueller_batteriestatus` | Live-Ladestatus — Unbekannt wenn offline (nur TNG) |
+| `sensor.<toniebox>_letzte_batterie` | Letzter bekannter Ladestand im Online-Zustand (nur TNG) |
+| `sensor.<toniebox>_letzter_batteriestatus` | Letzter bekannter Ladestatus im Online-Zustand (nur TNG) |
+| `sensor.<toniebox>_zuletzt_online` | Zeitstempel der letzten Cloud-Verbindung (nur TNG) |
 | `sensor.<toniebox>_generation` | Modell-Generation (classic / rosered / tng) |
 | `sensor.<toniebox>_features` | Unterstützte Funktionen |
 | `sensor.<toniebox>_zeitzone` | Konfigurierte Zeitzone |
