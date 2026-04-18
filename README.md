@@ -41,12 +41,12 @@
 
 - 🧸 Each **Creative Tonie** as its own device with media player, cover image and chapter list
 - 📻 Each **Toniebox** as its own device — shows the currently placed figure with name and cover
-- 📊 **Sensors** for chapter count, total duration, firmware version, online status, active box
+- 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level and active box
 - 🔘 **Buttons** to sort (title / filename / date), clear and refresh
 - 🔴 **Binary Sensors** for transcoding, live mode, household lock, active figure
 - 🎛️ **Switches** for LED, chapter skipping, scrubbing, offline mode, household lock
 - 🌐 **Select entities** for language, LED level, tap direction, age mode
-- ⚙️ **13 Services** for automations: sort, clear, rename, apply tune, redeem voucher and more
+- ⚙️ **14 Services** for automations: sort, clear, rename, apply tune, redeem voucher and more
 - 🌍 **Translations** for English, German, French, Spanish and Italian
 - 🔐 Keycloak OpenID Connect authentication — same credentials as the Toniebox app
 - 🛠️ Config Flow setup — **no YAML required**
@@ -122,6 +122,8 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | Entity | Description |
 |---|---|
 | `media_player.<toniebox>` | Currently placed figure, cover image, playback position |
+| `sensor.<toniebox>_current_tonie` | Currently placed figure (name) |
+| `sensor.<toniebox>_settings_applied` | Whether the latest settings have been transmitted |
 | `switch.<toniebox>_skip_chapters` | Chapter skipping via tap on/off |
 | `switch.<toniebox>_scrubbing` | Scrubbing by tilting on/off |
 | `switch.<toniebox>_offline_mode` | Offline mode |
@@ -142,6 +144,7 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `sensor.<toniebox>_bedtime_color` | Night light color (tng) |
 | `binary_sensor.<toniebox>_online` | Toniebox recently active (reachability) |
 | `binary_sensor.<toniebox>_led_active` | LED status |
+| `binary_sensor.<toniebox>_charging` | Currently charging — unknown when offline (TNG only) |
 | `select.<toniebox>_led_level` | LED brightness |
 | `select.<toniebox>_language` | Language setting |
 | `select.<toniebox>_tap_direction` | Tap direction |
@@ -438,12 +441,12 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 
 - 🧸 Jede **Creative Tonie** als eigenes Gerät mit Media Player, Cover-Bild und Kapitelliste
 - 📻 Jede **Toniebox** als eigenes Gerät — zeigt die aktuell aufgelegte Figur mit Name und Cover
-- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, aktive Box
+- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand und aktive Box
 - 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Leeren und Aktualisieren
 - 🔴 **Binary Sensors** für Transcoding, Live-Modus, Haushalt-Lock, aktive Figur
 - 🎛️ **Switches** für LED, Kapitel-Überspringen, Scrubbing, Offline-Modus, Haushalt-Sperren
 - 🌐 **Select-Entities** für Sprache, LED-Level, Tap-Richtung, Alters-Modus
-- ⚙️ **13 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
+- ⚙️ **14 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
 - 🌍 **Übersetzungen** für Deutsch, Englisch, Französisch, Spanisch und Italienisch
 - 🔐 Keycloak OpenID Connect Authentifizierung — selbe Zugangsdaten wie die Toniebox App
 - 🛠️ Config Flow Setup — **kein YAML erforderlich**
@@ -519,6 +522,8 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | Entity | Beschreibung |
 |---|---|
 | `media_player.<toniebox>` | Aktuell aufgelegte Figur, Cover-Bild, Wiedergabe-Position |
+| `sensor.<toniebox>_aktuelle_figur` | Aktuell aufgelegte Figur (Name) |
+| `sensor.<toniebox>_einstellungen_uebertragen` | Ob die aktuellen Einstellungen übertragen wurden |
 | `switch.<toniebox>_kapitel_ueberspringen` | Kapitel-Überspringen per Tippen ein/aus |
 | `switch.<toniebox>_vorspulen_zurueckspulen` | Scrubbing durch Kippen ein/aus |
 | `switch.<toniebox>_offline_modus` | Offline-Modus |
@@ -539,6 +544,7 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `sensor.<toniebox>_schlafenszeit_farbe` | Nachtlicht-Farbe (tng) |
 | `binary_sensor.<toniebox>_online` | Toniebox zuletzt aktiv (Erreichbarkeit) |
 | `binary_sensor.<toniebox>_led_aktiv` | LED-Status |
+| `binary_sensor.<toniebox>_wird_geladen` | Wird gerade geladen — Unbekannt wenn offline (nur TNG) |
 | `select.<toniebox>_led_level` | LED-Helligkeit |
 | `select.<toniebox>_sprache` | Spracheinstellung |
 | `select.<toniebox>_tap_richtung` | Tipp-Richtung |
