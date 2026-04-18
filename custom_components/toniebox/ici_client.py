@@ -87,8 +87,11 @@ class TonieboxIciClient:
                 protocol=mqtt.MQTTv5,
             )
             self._client.ws_set_options(path="/")
-            self._client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
-            self._client.tls_insecure_set(False)
+            # Use create_default_context() for full cert verification;
+            # avoids the deprecated ssl.PROTOCOL_TLS_CLIENT path in paho that
+            # can leave _ssl_context unset and break tls_insecure_set().
+            ssl_ctx = ssl.create_default_context()
+            self._client.tls_set(ssl_context=ssl_ctx)
             self._client.username_pw_set(username=user_uuid, password=access_token)
             self._client.reconnect_delay_set(min_delay=5, max_delay=120)
             self._client.on_connect = self._on_connect
@@ -126,7 +129,9 @@ class TonieboxIciClient:
         """Called by TonieCloudClient when the token is refreshed."""
         if not self._user_uuid or not self._loop:
             return
-        # Clear any previous auth failure so the reconnect is attempted.
+        # Update _last_token immediately so any in-flight _on_disconnect reconnect
+        # uses the fresh token rather than the expired one.
+        self._last_token = new_token
         self._auth_failed = False
         asyncio.run_coroutine_threadsafe(self.reconnect(new_token), self._loop)
 
@@ -155,8 +160,10 @@ class TonieboxIciClient:
                     "Reconnection suspended until the access token is refreshed.",
                     rc_str,
                 )
-                # Stop paho's internal reconnect loop to prevent log flooding.
-                # disconnect() must not be called from this thread, so schedule it.
+                # Synchronously tell paho to stop retrying — calling disconnect()
+                # from within _on_connect is safe and prevents further attempts
+                # before the async cleanup below has a chance to run.
+                client.disconnect()
                 if self._loop:
                     asyncio.run_coroutine_threadsafe(self.disconnect(), self._loop)
         else:
