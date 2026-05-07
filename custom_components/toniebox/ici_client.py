@@ -91,7 +91,13 @@ class TonieboxIciClient:
             # avoids the deprecated ssl.PROTOCOL_TLS_CLIENT path in paho that
             # can leave _ssl_context unset and break tls_insecure_set().
             ssl_ctx = ssl.create_default_context()
-            self._client.tls_set(ssl_context=ssl_ctx)
+            try:
+                self._client.tls_set(ssl_context=ssl_ctx)
+            except TypeError:
+                # paho-mqtt < 2.0 does not support the ssl_context kwarg;
+                # initialise TLS normally and then swap in our context.
+                self._client.tls_set()
+                self._client._ssl_context = ssl_ctx
             self._client.username_pw_set(username=user_uuid, password=access_token)
             self._client.reconnect_delay_set(min_delay=5, max_delay=120)
             self._client.on_connect = self._on_connect
