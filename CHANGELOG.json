@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.7.10",
+    "date": "2026-07-23",
+    "changes": {
+      "fixed": [
+        "media_player-Plattform wurde nie geladen (fehlte in PLATFORMS) — Media Player für Toniebox und Creative Tonies werden jetzt korrekt angelegt (#26)",
+        "ICI MQTT: nach einem Auth-Fehler wird der Access Token jetzt sofort erneuert statt bis zum nächsten Poll-Zyklus (bis zu 5 Min.) zu warten (#27)"
+      ]
+    }
+  },
+  {
     "version": "3.7.7",
     "date": "2026-04-18",
     "changes": {

@@ -134,6 +134,10 @@ class TonieCloudClient:
         except aiohttp.ClientError as err:
             raise TonieCloudAuthError(f"Network error: {err}") from err
 
+    async def async_refresh_token(self) -> None:
+        """Force a token refresh now (e.g. after an ICI MQTT auth failure)."""
+        await self._refresh_access_token()
+
     async def _refresh_access_token(self) -> None:
         if not self._refresh_token:
             await self.authenticate()
