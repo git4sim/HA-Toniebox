@@ -21,6 +21,7 @@ from .const import (
     ICI_TOPIC_BATTERY,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_ONLINE,
+    ICI_TOPIC_PLAYBACK,
     ICI_TOPIC_SETTINGS,
 )
 
@@ -32,6 +33,8 @@ _SUBSCRIBE_TOPICS = [
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_SETTINGS,
+    # Observation only for now — see const.py note on ICI_TOPIC_PLAYBACK.
+    ICI_TOPIC_PLAYBACK,
 ]
 
 
