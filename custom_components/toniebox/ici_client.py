@@ -84,31 +84,32 @@ class TonieboxIciClient:
         client_id = f"{user_uuid}_ha_toniebox_{random_id}"
 
         def _setup_and_connect():
-            """Set up MQTT client (blocking TLS calls) and connect."""
-            self._client = mqtt.Client(
+            """Set up MQTT client (blocking TLS calls) and connect.
+
+            Builds the client on a local variable and only publishes it to
+            self._client once fully configured, so a concurrent connect/
+            reconnect for this instance can't observe (or race on) a
+            partially-configured client via the shared attribute.
+            """
+            client = mqtt.Client(
                 callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=client_id,
                 transport="websockets",
                 protocol=mqtt.MQTTv5,
             )
-            self._client.ws_set_options(path="/")
-            # Use create_default_context() for full cert verification;
-            # avoids the deprecated ssl.PROTOCOL_TLS_CLIENT path in paho that
-            # can leave _ssl_context unset and break tls_insecure_set().
-            ssl_ctx = ssl.create_default_context()
-            try:
-                self._client.tls_set(ssl_context=ssl_ctx)
-            except TypeError:
-                # paho-mqtt < 2.0 does not support the ssl_context kwarg;
-                # initialise TLS normally and then swap in our context.
-                self._client.tls_set()
-                self._client._ssl_context = ssl_ctx
-            self._client.username_pw_set(username=user_uuid, password=access_token)
-            self._client.reconnect_delay_set(min_delay=5, max_delay=120)
-            self._client.on_connect = self._on_connect
-            self._client.on_message = self._on_message
-            self._client.on_disconnect = self._on_disconnect
-            self._client.connect_async(ICI_HOST, ICI_PORT, keepalive=60)
+            client.ws_set_options(path="/")
+            # tls_set() never accepts an ssl_context kwarg in any paho-mqtt
+            # version — tls_set_context() is the correct API for supplying a
+            # pre-built ssl.SSLContext (here from create_default_context()
+            # for full cert verification).
+            client.tls_set_context(ssl.create_default_context())
+            client.username_pw_set(username=user_uuid, password=access_token)
+            client.reconnect_delay_set(min_delay=5, max_delay=120)
+            client.on_connect = self._on_connect
+            client.on_message = self._on_message
+            client.on_disconnect = self._on_disconnect
+            client.connect_async(ICI_HOST, ICI_PORT, keepalive=60)
+            self._client = client
 
         try:
             await self._loop.run_in_executor(None, _setup_and_connect)

@@ -1,5 +1,15 @@
 [
   {
+    "version": "3.7.11",
+    "date": "2026-07-23",
+    "changes": {
+      "fixed": [
+        "ICI MQTT: tls_set(ssl_context=...) ist bei keiner paho-mqtt-Version gültig und schlug immer fehl; jetzt wird korrekt tls_set_context() verwendet",
+        "ICI MQTT: TLS-Setup lief teilweise auf dem geteilten self._client-Attribut — bei überlappenden Connect-Versuchen konnte das zu 'SSL/TLS has already been configured' führen; Setup läuft jetzt auf einer lokalen Variable und wird erst am Ende veröffentlicht"
+      ]
+    }
+  },
+  {
     "version": "3.7.10",
     "date": "2026-07-23",
     "changes": {
