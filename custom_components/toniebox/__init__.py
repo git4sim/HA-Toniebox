@@ -32,6 +32,7 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.NUMBER,
     Platform.IMAGE,
+    Platform.MEDIA_PLAYER,
 ]
 
 
@@ -398,6 +399,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             self.ici_client = TonieboxIciClient(
                 on_message_callback=self._on_ici_message,
                 loop=asyncio.get_running_loop(),
+                on_auth_failed=self._on_ici_auth_failed,
             )
             self.client.add_token_listener(self.ici_client.on_token_refreshed)
 
@@ -407,6 +409,18 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.info("ICI MQTT started for %d TNG boxes", len(tng_boxes))
         except Exception:
             _LOGGER.warning("Failed to start ICI MQTT", exc_info=True)
+
+    async def _on_ici_auth_failed(self) -> None:
+        """Called by the ICI client when the MQTT broker rejects the access token.
+
+        Forces an immediate REST token refresh instead of waiting for the next
+        poll cycle; the refresh notifies the ICI client's token listener, which
+        reconnects with the new token.
+        """
+        try:
+            await self.client.async_refresh_token()
+        except Exception:
+            _LOGGER.debug("Proactive token refresh after ICI auth failure failed", exc_info=True)
 
     def _on_ici_message(self, mac: str, subtopic: str, payload: dict) -> None:
         """Handle an ICI MQTT message (called from the event loop)."""

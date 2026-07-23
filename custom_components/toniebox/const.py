@@ -43,3 +43,8 @@ ICI_TOPIC_BATTERY = "metrics/battery"
 ICI_TOPIC_ONLINE = "online-state"
 ICI_TOPIC_HEADPHONES = "metrics/headphones"
 ICI_TOPIC_SETTINGS = "settings-applied"
+# Reported (unverified against a live account) to push Tonie placement /
+# playback events in real time. Subscribed for observation only for now —
+# see _on_message's debug log for the raw payload shape before wiring it
+# into any entity state.
+ICI_TOPIC_PLAYBACK = "playback/state"

@@ -21,6 +21,7 @@ from .const import (
     ICI_TOPIC_BATTERY,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_ONLINE,
+    ICI_TOPIC_PLAYBACK,
     ICI_TOPIC_SETTINGS,
 )
 
@@ -32,6 +33,8 @@ _SUBSCRIBE_TOPICS = [
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_SETTINGS,
+    # Observation only for now — see const.py note on ICI_TOPIC_PLAYBACK.
+    ICI_TOPIC_PLAYBACK,
 ]
 
 
@@ -42,9 +45,11 @@ class TonieboxIciClient:
         self,
         on_message_callback: Callable[[str, str, dict[str, Any]], None],
         loop: asyncio.AbstractEventLoop | None = None,
+        on_auth_failed: Callable[[], Any] | None = None,
     ) -> None:
         self._on_message_callback = on_message_callback
         self._loop = loop
+        self._on_auth_failed = on_auth_failed
         self._client: mqtt.Client | None = None
         self._connected = False
         self._boxes: list[dict] = []
@@ -124,6 +129,21 @@ class TonieboxIciClient:
                 self._client = None
                 self._connected = False
 
+    async def _handle_auth_failure(self) -> None:
+        """Clean up after an MQTT auth failure and ask for a fresh token now.
+
+        Without this, ICI would sit idle until the next REST poll cycle
+        (up to UPDATE_INTERVAL_MINUTES) happened to refresh the token.
+        """
+        await self.disconnect()
+        if self._on_auth_failed:
+            try:
+                result = self._on_auth_failed()
+                if result is not None:
+                    await result
+            except Exception:
+                _LOGGER.debug("ICI on_auth_failed callback raised", exc_info=True)
+
     async def reconnect(self, new_token: str) -> None:
         """Reconnect with a new access token."""
         if not self._user_uuid or not self._boxes:
@@ -171,7 +191,7 @@ class TonieboxIciClient:
                 # before the async cleanup below has a chance to run.
                 client.disconnect()
                 if self._loop:
-                    asyncio.run_coroutine_threadsafe(self.disconnect(), self._loop)
+                    asyncio.run_coroutine_threadsafe(self._handle_auth_failure(), self._loop)
         else:
             self._connected = False
             _LOGGER.warning("ICI MQTT connection failed: %s", rc_str)
