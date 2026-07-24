@@ -226,7 +226,8 @@
     },
     "binary_sensor": {
       "charging": {"name": "Cargando"},
-      "headphones_connected": {"name": "Conectados"}
+      "headphones_connected": {"name": "Conectados"},
+      "sleeptimer_active": {"name": "Temporizador de apagado activo"}
     },
     "number": {
       "lightring_brightness": {
@@ -285,10 +286,6 @@
       },
       "sort_select": {
         "name": "Ordenar capítulos"
-      },
-      "sleep_timer": {
-        "name": "Temporizador de apagado",
-        "state": {"off": "Apagado", "15": "15 minutos", "30": "30 minutos", "60": "60 minutos"}
       }
     },
     "switch": {

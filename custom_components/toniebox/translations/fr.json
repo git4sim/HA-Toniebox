@@ -226,7 +226,8 @@
     },
     "binary_sensor": {
       "charging": {"name": "En charge"},
-      "headphones_connected": {"name": "Connecté"}
+      "headphones_connected": {"name": "Connecté"},
+      "sleeptimer_active": {"name": "Minuteur de veille actif"}
     },
     "number": {
       "lightring_brightness": {
@@ -285,10 +286,6 @@
       },
       "sort_select": {
         "name": "Trier les chapitres"
-      },
-      "sleep_timer": {
-        "name": "Minuteur de veille",
-        "state": {"off": "Désactivé", "15": "15 minutes", "30": "30 minutes", "60": "60 minutes"}
       }
     },
     "switch": {

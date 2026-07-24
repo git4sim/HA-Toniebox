@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SORT_OPTIONS, SORT_BY_TITLE, SLEEP_TIMER_OPTIONS
+from .const import DOMAIN, SORT_OPTIONS, SORT_BY_TITLE
 from .content_tonie import ContentTonieLanguageSelect
 from .device_info import creative_tonie_device_info, toniebox_device_info
 
@@ -105,9 +105,6 @@ async def async_setup_entry(
                 if desc.feature_excluded and desc.feature_excluded in features:
                     continue
                 entities.append(TonieboxSelect(coordinator, hh_id, tb_id, desc))
-            # Sleep timer — TNG only (needs the ICI real-time connection)
-            if tb.get("generation") == "tng":
-                entities.append(TonieboxSleepTimerSelect(coordinator, hh_id, tb_id))
 
         # Creative Tonie: sort selector
         for t_id in hh.get("creativetonies", {}):
@@ -191,78 +188,6 @@ class TonieboxSelect(CoordinatorEntity, SelectEntity):
             self._hh_id, self._tb_id, {self._desc.api_key: option}
         )
         await self.coordinator.async_request_refresh()
-
-
-# ── Toniebox sleep timer (TNG only, via ICI) ──────────────────────────────────
-
-class TonieboxSleepTimerSelect(CoordinatorEntity, SelectEntity):
-    """Arm/cancel the box's sleep timer (15/30/60 min) via ICI app-control."""
-
-    _attr_has_entity_name = True
-    _attr_icon = "mdi:timer-outline"
-    _attr_translation_key = "sleep_timer"
-    _attr_options = list(SLEEP_TIMER_OPTIONS.keys())
-
-    # duration (seconds) -> option key, for reflecting the box's reported timer
-    _DURATION_TO_OPTION = {
-        secs: opt for opt, secs in SLEEP_TIMER_OPTIONS.items() if secs is not None
-    }
-
-    def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
-        super().__init__(coordinator)
-        self._hh_id = hh_id
-        self._tb_id = tb_id
-        self._attr_unique_id = f"tb_{tb_id}_sleep_timer"
-        self._optimistic: str | None = None
-
-    @property
-    def _tb(self) -> dict:
-        return (
-            self.coordinator.data
-            .get("households", {}).get(self._hh_id, {})
-            .get("tonieboxes", {}).get(self._tb_id, {})
-        )
-
-    @property
-    def _mac(self) -> str:
-        return self._tb.get("mac_address") or ""
-
-    @property
-    def device_info(self) -> dict:
-        return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        self._optimistic = None
-        super()._handle_coordinator_update()
-
-    @property
-    def current_option(self) -> str:
-        if self._optimistic is not None:
-            return self._optimistic
-        timer = self._tb.get("sleep_timer") or {}
-        if timer.get("state") == "on":
-            return self._DURATION_TO_OPTION.get(timer.get("duration"), "off")
-        return "off"
-
-    @property
-    def extra_state_attributes(self) -> dict:
-        from datetime import datetime, timezone
-        timer = self._tb.get("sleep_timer") or {}
-        active = timer.get("state") == "on"
-        until = timer.get("until")
-        sleep_until = None
-        if active and isinstance(until, (int, float)):
-            sleep_until = datetime.fromtimestamp(until, tz=timezone.utc).isoformat()
-        return {"active": active, "sleep_until": sleep_until}
-
-    async def async_select_option(self, option: str) -> None:
-        self._optimistic = option
-        self.async_write_ha_state()
-        if option == "off":
-            self.coordinator.ici_cancel_sleep_timer(self._mac)
-        else:
-            self.coordinator.ici_set_sleep_timer(self._mac, SLEEP_TIMER_OPTIONS[option])
 
 
 # ── Creative Tonie sort selector ──────────────────────────────────────────────

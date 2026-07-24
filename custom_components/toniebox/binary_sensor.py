@@ -39,6 +39,7 @@ async def async_setup_entry(
             if tb.get("generation") == "tng":
                 entities.append(TonieboxChargingSensor(coordinator, hh_id, tb_id))
                 entities.append(HeadphonesConnectedSensor(coordinator, hh_id, tb_id))
+                entities.append(TonieboxSleepTimerActiveSensor(coordinator, hh_id, tb_id))
     # ── Content Tonie binary sensors ─────────────────────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
@@ -184,6 +185,32 @@ class TonieboxChargingSensor(_TbBin):
         if isinstance(battery, dict):
             return battery.get("status") == "charging"
         return None
+
+
+class TonieboxSleepTimerActiveSensor(_TbBin):
+    """Whether a sleep timer is currently running on a TNG Toniebox (via ICI)."""
+
+    _attr_icon = "mdi:timer-outline"
+    _attr_translation_key = "sleeptimer_active"
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_sleeptimer_active"
+
+    @property
+    def is_on(self) -> bool:
+        timer = self._tb.get("sleep_timer")
+        return isinstance(timer, dict) and timer.get("state") == "on"
+
+    @property
+    def extra_state_attributes(self):
+        from datetime import datetime, timezone
+        timer = self._tb.get("sleep_timer") or {}
+        until = timer.get("until")
+        sleep_until = None
+        if timer.get("state") == "on" and isinstance(until, (int, float)):
+            sleep_until = datetime.fromtimestamp(until, tz=timezone.utc).isoformat()
+        return {"sleep_until": sleep_until, "duration_seconds": timer.get("duration")}
 
 
 class HeadphonesConnectedSensor(_TbBin):

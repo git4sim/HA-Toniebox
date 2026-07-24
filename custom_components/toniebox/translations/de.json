@@ -199,8 +199,7 @@
         "name": "Boxsprache",
         "state": {"de": "Deutsch", "en": "Englisch", "en-us": "Englisch (US)", "fr": "Französisch"}
       },
-      "sort_select": {"name": "Kapitel sortieren"},
-      "sleep_timer": {"name": "Sleep-Timer", "state": {"off": "Aus", "15": "15 Minuten", "30": "30 Minuten", "60": "60 Minuten"}}
+      "sort_select": {"name": "Kapitel sortieren"}
     },
     "switch": {
       "skipping": {"name": "Klappsen zum Überspringen"},
@@ -231,7 +230,8 @@
       "locked_household": {"name": "Im Haushalt gesperrt"},
       "transcoding_active": {"name": "Transkodierung aktiv"},
       "charging": {"name": "Wird geladen"},
-      "headphones_connected": {"name": "Verbunden"}
+      "headphones_connected": {"name": "Verbunden"},
+      "sleeptimer_active": {"name": "Schlaftimer aktiv"}
     }
   }
 }

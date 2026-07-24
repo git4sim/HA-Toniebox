@@ -224,13 +224,17 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         return [c for c in (chapters or []) if isinstance(c, dict)]
 
     def _chapter_title(self) -> str | None:
-        """Resolve the title of the currently playing chapter (1-indexed)."""
+        """Resolve the title of the currently playing chapter.
+
+        Verified live (tests/chapter_index_test.py): the box's `chapter` field is
+        a 0-based index into the chapter list (setPosition N -> plays list[N]).
+        """
         chapter = self._playback_state.get("chapter")
-        if not isinstance(chapter, int) or chapter < 1:
+        if not isinstance(chapter, int) or chapter < 0:
             return None
         chapters = self._chapters()
-        if chapter <= len(chapters):
-            ch = chapters[chapter - 1]
+        if 0 <= chapter < len(chapters):
+            ch = chapters[chapter]
             return ch.get("title") or ch.get("tuneTitle")
         return None
 
@@ -258,8 +262,9 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         if chapter_title:
             return chapter_title
         chapter = self._playback_state.get("chapter")
-        if isinstance(chapter, int) and chapter >= 1:
-            return f"Kapitel {chapter}"
+        if isinstance(chapter, int) and chapter >= 0:
+            # chapter is 0-based; show a human-friendly 1-based number.
+            return f"Kapitel {chapter + 1}"
         # No live chapter info yet — fall back to the tonie's own name.
         tonie_id = tonie.get("id", "")
         return tonie.get("name") or self._resolve_tonie_name(tonie_id) or tonie_id
@@ -339,7 +344,8 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         if not self._is_tng:
             return
         chapter = self._playback_state.get("chapter")
-        if isinstance(chapter, int) and chapter > 1:
+        # chapter is 0-based; chapter 0 is the first, so guard at >= 1.
+        if isinstance(chapter, int) and chapter >= 1:
             self.coordinator.ici_playback_command(
                 self._mac, "setPosition", chapter=chapter - 1, ms=0
             )
@@ -374,11 +380,16 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
     async def async_browse_media(
         self, media_content_type: str | None = None, media_content_id: str | None = None
     ) -> BrowseMedia:
-        """Expose the placed Tonie's chapters as a browsable list."""
-        current = self._playback_state.get("chapter")
+        """Expose the placed Tonie's chapters as a browsable list.
+
+        The box addresses chapters 0-based (verified live), so the
+        media_content_id carries the 0-based index while the label shows a
+        human-friendly 1-based number.
+        """
+        current = self._playback_state.get("chapter")   # 0-based box index
         children = []
-        for idx, ch in enumerate(self._chapters(), start=1):
-            title = ch.get("title") or ch.get("tuneTitle") or f"Kapitel {idx}"
+        for idx, ch in enumerate(self._chapters()):     # idx = 0-based box index
+            title = ch.get("title") or ch.get("tuneTitle") or f"Kapitel {idx + 1}"
             # Mark the chapter that is playing right now.
             label = f"▶ {title}" if idx == current else title
             children.append(
@@ -406,14 +417,17 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
     async def async_play_media(
         self, media_type: str, media_id: str, **kwargs: Any
     ) -> None:
-        """Jump to a chapter selected from the browse list (media_id 'chapter:N')."""
+        """Jump to a chapter selected from the browse list (media_id 'chapter:N').
+
+        N is the box's 0-based chapter index (see async_browse_media).
+        """
         if not self._is_tng or not media_id.startswith("chapter:"):
             return
         try:
             chapter = int(media_id.split(":", 1)[1])
         except ValueError:
             return
-        if chapter >= 1:
+        if chapter >= 0:
             self.coordinator.ici_playback_command(
                 self._mac, "setPosition", chapter=chapter, ms=0
             )
@@ -431,7 +445,10 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
             "last_seen": tb.get("last_seen"),
             "firmware": tb.get("firmware", {}),
             "placement": tb.get("placement") or {},
-            "current_chapter": ps.get("chapter"),
+            # 1-based for humans; the box reports a 0-based chapter internally.
+            "current_chapter": (
+                ps["chapter"] + 1 if isinstance(ps.get("chapter"), int) else None
+            ),
             "paused": ps.get("paused"),
         }
         if info:

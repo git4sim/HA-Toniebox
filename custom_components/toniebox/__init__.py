@@ -112,6 +112,25 @@ async def _find_toniebox(hass: HomeAssistant, entity_id: str):
     return None, None, None
 
 
+async def _find_toniebox_target(hass: HomeAssistant, entity_id: str):
+    """Look up (coordinator, hh_id, tb_id, tb_dict) for any Toniebox entity.
+
+    Unlike _find_toniebox this returns the coordinator and the box data dict, so
+    callers can access the MAC / generation and invoke coordinator ICI commands.
+    """
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    if entry is not None and entry.unique_id.startswith("tb_"):
+        uid = entry.unique_id[3:]  # strip "tb_"
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            for hh_id, hh in coordinator.data.get("households", {}).items():
+                for tb_id, tb in hh.get("tonieboxes", {}).items():
+                    if uid == tb_id or uid.startswith(tb_id + "_"):
+                        return coordinator, hh_id, tb_id, tb
+
+    return None, None, None, None
+
+
 def _slugify(text: str) -> str:
     import re
     text = text.lower().strip()
@@ -295,6 +314,34 @@ def _register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({
             vol.Required("entity_id"): cv.string,
             vol.Required("name"): cv.string,
+        }),
+    )
+
+    async def handle_sleeptimer(call):
+        coordinator, hh_id, tb_id, tb = await _find_toniebox_target(
+            hass, call.data["entity_id"]
+        )
+        if not coordinator or not tb:
+            _LOGGER.error("sleeptimer: Toniebox not found for %s", call.data["entity_id"])
+            return
+        if tb.get("generation") != "tng":
+            _LOGGER.warning(
+                "sleeptimer: only supported on Toniebox 2 (TNG); %s is %s",
+                call.data["entity_id"], tb.get("generation"),
+            )
+            return
+        mac = tb.get("mac_address") or ""
+        minutes = call.data["minutes"]
+        if minutes <= 0:
+            coordinator.ici_cancel_sleep_timer(mac)
+        else:
+            coordinator.ici_set_sleep_timer(mac, minutes * 60)
+
+    hass.services.async_register(
+        DOMAIN, "sleeptimer", handle_sleeptimer,
+        schema=vol.Schema({
+            vol.Required("entity_id"): cv.string,
+            vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0)),
         }),
     )
 
@@ -757,6 +804,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 # The GraphQL API uses Relay-style pagination: each "my*" query
                 # returns a Connection type with edges[].node instead of a plain list.
+                # Field names verified via schema introspection (see
+                # tests/gql_introspect*.py). Content tonies use `title` +
+                # `series { name }` (there is no `name`), `lock` (not `locked`),
+                # and `languageName`. Discs use `title`/`coverImageUrl`. The
+                # Toniebox node has NO `placement` field — placement comes from
+                # ICI (see _on_ici_message), so it is not queried here.
                 gql_resp = await self.client.graphql_query("""
                     {
                       myContentTonies {
@@ -764,10 +817,13 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                           node {
                             id
                             householdId
-                            name
+                            title
                             imageUrl
-                            locked
-                            language
+                            coverUrl
+                            lock
+                            languageName
+                            salesId
+                            series { name }
                             chapters { id title seconds transcoding }
                           }
                         }
@@ -777,20 +833,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                           node {
                             id
                             householdId
-                            name
-                            imageUrl
-                            locked
-                          }
-                        }
-                      }
-                      myTonieboxes {
-                        edges {
-                          node {
-                            id
-                            householdId
-                            placement {
-                              tonie { id name imageUrl type }
-                            }
+                            title
+                            coverImageUrl
+                            discImageUrl
+                            lock
+                            language
+                            salesId
                           }
                         }
                       }
@@ -827,20 +875,24 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         for ch in (tonie.get("chapters") or [])
                         if isinstance(ch, dict)
                     ]
+                    series_name = (tonie.get("series") or {}).get("name")
                     hh_data["contenttonies"][t_id] = {
                         "id": t_id,
-                        "name": tonie.get("name") or t_id,
-                        "image_url": tonie.get("imageUrl"),
+                        # title is the specific content name (e.g. "Schlummerjaguar
+                        # - …"); series.name is the product line ("Schlummerbande").
+                        "name": tonie.get("title") or series_name or t_id,
+                        "series": series_name,
+                        "image_url": tonie.get("imageUrl") or tonie.get("coverUrl"),
                         "household_id": hh_id,
-                        "locked": tonie.get("locked", False),
-                        "language": tonie.get("language"),
+                        "locked": tonie.get("lock", False),
+                        "language": tonie.get("languageName"),
                         "chapters": chapters,
                         "chapter_count": len(chapters),
                         "total_seconds": sum(c["seconds"] for c in chapters),
                         "transcoding": False,
                         "transcoding_errors": [],
                         "tune_id": None,
-                        "sales_id": None,
+                        "sales_id": tonie.get("salesId"),
                         "item_id": None,
                         "toniebox_id": None,
                     }
@@ -854,23 +906,17 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         continue
                     hh_data["discs"][d_id] = {
                         "id": d_id,
-                        "name": disc.get("name") or d_id,
-                        "image_url": disc.get("imageUrl"),
+                        "name": disc.get("title") or d_id,
+                        "image_url": disc.get("coverImageUrl") or disc.get("discImageUrl"),
                         "household_id": hh_id,
-                        "locked": disc.get("locked", False),
-                        "language": None,
-                        "sales_id": None,
+                        "locked": disc.get("lock", False),
+                        "language": disc.get("language"),
+                        "sales_id": disc.get("salesId"),
                         "item_id": None,
                         "toniebox_id": None,
                     }
-
-                # Placement data per Toniebox (applied after the REST loop)
-                for gql_box in _relay_nodes(gql_data.get("myTonieboxes")):
-                    if gql_box.get("householdId") != hh_id:
-                        continue
-                    b_id = gql_box.get("id", "")
-                    if b_id:
-                        gql_placements[b_id] = gql_box.get("placement") or {}
+                # Note: placement is NOT available via GraphQL (the Toniebox node
+                # has no such field); it is provided in real time by ICI instead.
 
             except Exception as e:
                 _LOGGER.debug("GraphQL query failed for %s: %s", hh_id, e)

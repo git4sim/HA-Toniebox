@@ -50,14 +50,6 @@ ICI_TOPIC_VOLUME = "volume/state"
 #   {"stl": {"state": "on"|"off"|"completed", "duration": <s>, "until": <epoch>}}
 ICI_TOPIC_BEDTIME = "app-reply/bedtime-state"
 
-# Sleep-timer dropdown options -> duration in seconds ("off" cancels the timer).
-SLEEP_TIMER_OPTIONS: dict[str, int | None] = {
-    "off": None,
-    "15": 900,
-    "30": 1800,
-    "60": 3600,
-}
-
 # ── ICI app-control commands (published by us / the official app) ──────────────
 # Verified by capturing the official Tonies app's MQTT traffic (see
 # tests/capture_commands.py). Commands are published to:

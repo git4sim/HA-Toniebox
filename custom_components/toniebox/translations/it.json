@@ -226,7 +226,8 @@
     },
     "binary_sensor": {
       "charging": {"name": "In carica"},
-      "headphones_connected": {"name": "Collegato"}
+      "headphones_connected": {"name": "Collegato"},
+      "sleeptimer_active": {"name": "Timer di spegnimento attivo"}
     },
     "number": {
       "lightring_brightness": {
@@ -285,10 +286,6 @@
       },
       "sort_select": {
         "name": "Ordina capitoli"
-      },
-      "sleep_timer": {
-        "name": "Timer di spegnimento",
-        "state": {"off": "Off", "15": "15 minuti", "30": "30 minuti", "60": "60 minuti"}
       }
     },
     "switch": {

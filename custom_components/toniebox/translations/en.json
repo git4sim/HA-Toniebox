@@ -199,8 +199,7 @@
         "name": "Box Language",
         "state": {"de": "German", "en": "English", "en-us": "English (US)", "fr": "French"}
       },
-      "sort_select": {"name": "Sort Chapters"},
-      "sleep_timer": {"name": "Sleep Timer", "state": {"off": "Off", "15": "15 minutes", "30": "30 minutes", "60": "60 minutes"}}
+      "sort_select": {"name": "Sort Chapters"}
     },
     "switch": {
       "skipping": {"name": "Skip with Ear Press"},
@@ -231,7 +230,8 @@
       "locked_household": {"name": "Locked to Household"},
       "transcoding_active": {"name": "Transcoding Active"},
       "charging": {"name": "Charging"},
-      "headphones_connected": {"name": "Connected"}
+      "headphones_connected": {"name": "Connected"},
+      "sleeptimer_active": {"name": "Sleep Timer Active"}
     }
   }
 }
