@@ -141,6 +141,32 @@ rename_toniebox:
       selector:
         text:
 
+sleeptimer:
+  name: Sleep Timer
+  description: >
+    Start a sleep timer on a Toniebox 2 (TNG). The box falls asleep on its own
+    after the given number of minutes. Pass 0 minutes to cancel a running timer.
+  fields:
+    entity_id:
+      name: Toniebox
+      description: The media_player entity of the target Toniebox 2.
+      required: true
+      selector:
+        entity:
+          integration: toniebox
+          domain: media_player
+    minutes:
+      name: Minutes
+      description: Minutes until the box sleeps. 0 cancels the running timer.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 1440
+          step: 1
+          unit_of_measurement: min
+          mode: box
+
 redeem_content_token:
   name: Redeem Content Token
   description: Redeem a free content token onto a Creative Tonie.

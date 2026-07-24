@@ -209,6 +209,9 @@
       "current_tonie": {
         "name": "Figura attuale"
       },
+      "current_tonie_id": {
+        "name": "ID figura attuale"
+      },
       "battery": {"name": "Batteria attuale"},
       "battery_status": {"name": "Stato batteria attuale"},
       "last_battery": {"name": "Ultima batteria"},
@@ -223,7 +226,8 @@
     },
     "binary_sensor": {
       "charging": {"name": "In carica"},
-      "headphones_connected": {"name": "Collegato"}
+      "headphones_connected": {"name": "Collegato"},
+      "sleeptimer_active": {"name": "Timer di spegnimento attivo"}
     },
     "number": {
       "lightring_brightness": {

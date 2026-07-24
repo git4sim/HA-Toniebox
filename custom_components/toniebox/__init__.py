@@ -18,6 +18,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .const import (
     DOMAIN, CONF_USERNAME, CONF_PASSWORD, UPDATE_INTERVAL_MINUTES,
     ICI_TOPIC_BATTERY, ICI_TOPIC_ONLINE, ICI_TOPIC_HEADPHONES, ICI_TOPIC_SETTINGS,
+    ICI_TOPIC_PLAYBACK, ICI_TOPIC_VOLUME, ICI_TOPIC_BEDTIME,
+    ICI_CMD_PLAYBACK, ICI_CMD_VOLUME, ICI_VOLUME_MAX_LEVEL,
+    ICI_CMD_SLEEP_TIMER, ICI_CMD_SLEEP_NOW,
 )
 from .ici_client import TonieboxIciClient
 from .tonie_client import TonieCloudClient, TonieCloudAuthError, TonieCloudAPIError
@@ -107,6 +110,25 @@ async def _find_toniebox(hass: HomeAssistant, entity_id: str):
                         return coordinator.client, hh_id, tb_id
 
     return None, None, None
+
+
+async def _find_toniebox_target(hass: HomeAssistant, entity_id: str):
+    """Look up (coordinator, hh_id, tb_id, tb_dict) for any Toniebox entity.
+
+    Unlike _find_toniebox this returns the coordinator and the box data dict, so
+    callers can access the MAC / generation and invoke coordinator ICI commands.
+    """
+    registry = er.async_get(hass)
+    entry = registry.async_get(entity_id)
+    if entry is not None and entry.unique_id.startswith("tb_"):
+        uid = entry.unique_id[3:]  # strip "tb_"
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            for hh_id, hh in coordinator.data.get("households", {}).items():
+                for tb_id, tb in hh.get("tonieboxes", {}).items():
+                    if uid == tb_id or uid.startswith(tb_id + "_"):
+                        return coordinator, hh_id, tb_id, tb
+
+    return None, None, None, None
 
 
 def _slugify(text: str) -> str:
@@ -295,6 +317,34 @@ def _register_services(hass: HomeAssistant) -> None:
         }),
     )
 
+    async def handle_sleeptimer(call):
+        coordinator, hh_id, tb_id, tb = await _find_toniebox_target(
+            hass, call.data["entity_id"]
+        )
+        if not coordinator or not tb:
+            _LOGGER.error("sleeptimer: Toniebox not found for %s", call.data["entity_id"])
+            return
+        if tb.get("generation") != "tng":
+            _LOGGER.warning(
+                "sleeptimer: only supported on Toniebox 2 (TNG); %s is %s",
+                call.data["entity_id"], tb.get("generation"),
+            )
+            return
+        mac = tb.get("mac_address") or ""
+        minutes = call.data["minutes"]
+        if minutes <= 0:
+            coordinator.ici_cancel_sleep_timer(mac)
+        else:
+            coordinator.ici_set_sleep_timer(mac, minutes * 60)
+
+    hass.services.async_register(
+        DOMAIN, "sleeptimer", handle_sleeptimer,
+        schema=vol.Schema({
+            vol.Required("entity_id"): cv.string,
+            vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        }),
+    )
+
     # ── Voucher service ───────────────────────────────────────────────────────
 
     async def handle_redeem_voucher(call):
@@ -399,7 +449,6 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             self.ici_client = TonieboxIciClient(
                 on_message_callback=self._on_ici_message,
                 loop=asyncio.get_running_loop(),
-                on_auth_failed=self._on_ici_auth_failed,
             )
             self.client.add_token_listener(self.ici_client.on_token_refreshed)
 
@@ -410,17 +459,41 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception:
             _LOGGER.warning("Failed to start ICI MQTT", exc_info=True)
 
-    async def _on_ici_auth_failed(self) -> None:
-        """Called by the ICI client when the MQTT broker rejects the access token.
+    @staticmethod
+    def _parse_playback_state(payload: dict) -> dict:
+        """Derive a media-player-friendly live playback state from an ICI
+        playback/state payload.
 
-        Forces an immediate REST token refresh instead of waiting for the next
-        poll cycle; the refresh notifies the ICI client's token listener, which
-        reconnects with the new token.
+        chapterUntilMs is an absolute epoch-ms timestamp for when the current
+        chapter ends; combined with chapterDuration we compute the elapsed
+        position *at message-receipt time* and store updated_at, so Home
+        Assistant extrapolates the progress bar forward while playing and
+        freezes it while paused.
         """
-        try:
-            await self.client.async_refresh_token()
-        except Exception:
-            _LOGGER.debug("Proactive token refresh after ICI auth failure failed", exc_info=True)
+        now = datetime.now(timezone.utc)
+        duration = payload.get("chapterDuration")
+        until_ms = payload.get("chapterUntilMs")
+        position_ms = payload.get("chapterPositionMs")
+        position = None
+        if isinstance(position_ms, (int, float)):
+            # Paused: box reports an exact position within the chapter.
+            position = position_ms / 1000
+            if isinstance(duration, (int, float)):
+                position = max(0.0, min(float(duration), position))
+        elif isinstance(duration, (int, float)) and isinstance(until_ms, (int, float)):
+            # Playing: derive elapsed from the chapter's absolute end timestamp.
+            remaining = until_ms / 1000 - now.timestamp()
+            position = max(0.0, min(float(duration), float(duration) - remaining))
+        return {
+            "paused": payload.get("paused"),
+            "ended": payload.get("ended"),
+            "blocked": payload.get("blocked"),
+            "downloading": payload.get("downloading"),
+            "chapter": payload.get("chapter"),
+            "chapter_duration": duration,
+            "position": position,
+            "updated_at": now,
+        }
 
     def _on_ici_message(self, mac: str, subtopic: str, payload: dict) -> None:
         """Handle an ICI MQTT message (called from the event loop)."""
@@ -475,9 +548,101 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             tb["settings_applied"] = True
             updated = True
 
+        elif subtopic == ICI_TOPIC_VOLUME and isinstance(payload, dict):
+            # Live playback volume: {"level": N, "hardwarePercentage": P}.
+            tb["volume"] = {
+                "level": payload.get("level"),
+                "hardware_percentage": payload.get("hardwarePercentage"),
+            }
+            updated = True
+
+        elif subtopic == ICI_TOPIC_BEDTIME:
+            # {"stl": {"state": "on"|"off"|"completed", "duration": <s>, "until": <epoch>}}
+            stl = payload.get("stl") if isinstance(payload, dict) else None
+            if isinstance(stl, dict):
+                tb["sleep_timer"] = {
+                    "state": stl.get("state"),
+                    "duration": stl.get("duration"),
+                    "until": stl.get("until"),
+                }
+            else:
+                tb["sleep_timer"] = {}
+            updated = True
+
+        elif subtopic == ICI_TOPIC_PLAYBACK:
+            # Verified against a live account: {"tonie": "<id>", "paused": bool,
+            # "chapter": int, "chapterUntilMs": <epoch ms>, "chapterDuration":
+            # <seconds>, "ended": bool, ...} — "tonie" is a flat ID string, not a
+            # nested object. An empty/None payload means the Tonie was removed.
+            if not payload:
+                tb["placement"] = {}
+                tb["playback_state"] = {}
+            elif isinstance(payload, dict):
+                raw_tonie = payload.get("tonie")
+                if isinstance(raw_tonie, dict):
+                    tonie = raw_tonie if raw_tonie.get("id") else None
+                elif isinstance(raw_tonie, str) and raw_tonie:
+                    tonie = {"id": raw_tonie}
+                else:
+                    flat_id = payload.get("tonieId") or payload.get("id")
+                    tonie = {"id": flat_id} if flat_id else None
+                tb["placement"] = {"tonie": tonie} if tonie else {}
+                tb["playback_state"] = self._parse_playback_state(payload)
+            updated = True
+            # MQTT gives us the identity of the placed Tonie immediately, but not
+            # chapters/cover art — request a full coordinator refresh so REST/
+            # GraphQL (get_playback_info) fills in the rest shortly after.
+            self.hass.async_create_task(self.async_request_refresh())
+
         if updated:
             tb["last_seen"] = datetime.now(timezone.utc)
             self.async_set_updated_data(data)
+
+    # ── ICI app-control commands (mirror the official Tonies app) ──────────────
+
+    def _ici_publish(self, mac: str, command_type: str, payload: dict) -> bool:
+        """Send an app-control command to a box via the ICI broker."""
+        if not self.ici_client or not mac:
+            _LOGGER.warning("Cannot send ICI command %s: no ICI client / MAC", command_type)
+            return False
+        # State topics are delivered on the upper-case MAC; commands use the same.
+        return self.ici_client.publish_command(mac.upper(), command_type, payload)
+
+    def ici_playback_command(
+        self, mac: str, action: str,
+        chapter: int | None = None, ms: int | None = None,
+    ) -> bool:
+        """Play/pause/seek. action = 'start' | 'pause' | 'setPosition'."""
+        payload: dict = {"action": action}
+        if chapter is not None:
+            payload["chapter"] = chapter
+        if ms is not None:
+            payload["ms"] = ms
+        return self._ici_publish(mac, ICI_CMD_PLAYBACK, payload)
+
+    def ici_set_volume_level(self, mac: str, level: int) -> bool:
+        """Set the playback volume by discrete level (clamped to the box scale)."""
+        level = max(0, min(ICI_VOLUME_MAX_LEVEL, int(level)))
+        return self._ici_publish(mac, ICI_CMD_VOLUME, {"level": level})
+
+    def ici_sleep_now(self, mac: str) -> bool:
+        """Put the box to sleep immediately (it goes offline).
+
+        Mirrors the official app: set a short sleep timer, then send `sleep`.
+        Waking the box back up over the cloud is not possible.
+        """
+        self._ici_publish(mac, ICI_CMD_SLEEP_TIMER, {"state": "on", "duration": 300})
+        return self._ici_publish(mac, ICI_CMD_SLEEP_NOW, {})
+
+    def ici_set_sleep_timer(self, mac: str, seconds: int) -> bool:
+        """Arm a sleep timer: the box falls asleep on its own after `seconds`."""
+        return self._ici_publish(
+            mac, ICI_CMD_SLEEP_TIMER, {"state": "on", "duration": int(seconds)}
+        )
+
+    def ici_cancel_sleep_timer(self, mac: str) -> bool:
+        """Cancel a running sleep timer."""
+        return self._ici_publish(mac, ICI_CMD_SLEEP_TIMER, {"state": "off"})
 
     async def _async_update_data(self) -> dict:
         try:
@@ -639,6 +804,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 # The GraphQL API uses Relay-style pagination: each "my*" query
                 # returns a Connection type with edges[].node instead of a plain list.
+                # Field names verified via schema introspection (see
+                # tests/gql_introspect*.py). Content tonies use `title` +
+                # `series { name }` (there is no `name`), `lock` (not `locked`),
+                # and `languageName`. Discs use `title`/`coverImageUrl`. The
+                # Toniebox node has NO `placement` field — placement comes from
+                # ICI (see _on_ici_message), so it is not queried here.
                 gql_resp = await self.client.graphql_query("""
                     {
                       myContentTonies {
@@ -646,10 +817,13 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                           node {
                             id
                             householdId
-                            name
+                            title
                             imageUrl
-                            locked
-                            language
+                            coverUrl
+                            lock
+                            languageName
+                            salesId
+                            series { name }
                             chapters { id title seconds transcoding }
                           }
                         }
@@ -659,20 +833,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                           node {
                             id
                             householdId
-                            name
-                            imageUrl
-                            locked
-                          }
-                        }
-                      }
-                      myTonieboxes {
-                        edges {
-                          node {
-                            id
-                            householdId
-                            placement {
-                              tonie { id name imageUrl type }
-                            }
+                            title
+                            coverImageUrl
+                            discImageUrl
+                            lock
+                            language
+                            salesId
                           }
                         }
                       }
@@ -709,20 +875,24 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         for ch in (tonie.get("chapters") or [])
                         if isinstance(ch, dict)
                     ]
+                    series_name = (tonie.get("series") or {}).get("name")
                     hh_data["contenttonies"][t_id] = {
                         "id": t_id,
-                        "name": tonie.get("name") or t_id,
-                        "image_url": tonie.get("imageUrl"),
+                        # title is the specific content name (e.g. "Schlummerjaguar
+                        # - …"); series.name is the product line ("Schlummerbande").
+                        "name": tonie.get("title") or series_name or t_id,
+                        "series": series_name,
+                        "image_url": tonie.get("imageUrl") or tonie.get("coverUrl"),
                         "household_id": hh_id,
-                        "locked": tonie.get("locked", False),
-                        "language": tonie.get("language"),
+                        "locked": tonie.get("lock", False),
+                        "language": tonie.get("languageName"),
                         "chapters": chapters,
                         "chapter_count": len(chapters),
                         "total_seconds": sum(c["seconds"] for c in chapters),
                         "transcoding": False,
                         "transcoding_errors": [],
                         "tune_id": None,
-                        "sales_id": None,
+                        "sales_id": tonie.get("salesId"),
                         "item_id": None,
                         "toniebox_id": None,
                     }
@@ -736,23 +906,17 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         continue
                     hh_data["discs"][d_id] = {
                         "id": d_id,
-                        "name": disc.get("name") or d_id,
-                        "image_url": disc.get("imageUrl"),
+                        "name": disc.get("title") or d_id,
+                        "image_url": disc.get("coverImageUrl") or disc.get("discImageUrl"),
                         "household_id": hh_id,
-                        "locked": disc.get("locked", False),
-                        "language": None,
-                        "sales_id": None,
+                        "locked": disc.get("lock", False),
+                        "language": disc.get("language"),
+                        "sales_id": disc.get("salesId"),
                         "item_id": None,
                         "toniebox_id": None,
                     }
-
-                # Placement data per Toniebox (applied after the REST loop)
-                for gql_box in _relay_nodes(gql_data.get("myTonieboxes")):
-                    if gql_box.get("householdId") != hh_id:
-                        continue
-                    b_id = gql_box.get("id", "")
-                    if b_id:
-                        gql_placements[b_id] = gql_box.get("placement") or {}
+                # Note: placement is NOT available via GraphQL (the Toniebox node
+                # has no such field); it is provided in real time by ICI instead.
 
             except Exception as e:
                 _LOGGER.debug("GraphQL query failed for %s: %s", hh_id, e)
@@ -773,9 +937,25 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     if not b_id:
                         continue
 
-                    # REST API does not include placement — use GraphQL data.
-                    # Fall back to whatever the REST response has (usually {}).
-                    placement = gql_placements.get(b_id) or box.get("placement") or {}
+                    # Previous coordinator data for this box — holds the ICI
+                    # real-time values (battery, online, placement) that REST/
+                    # GraphQL don't reliably provide.
+                    prev_tb = (
+                        (self.data or {})
+                        .get("households", {}).get(hh_id, {})
+                        .get("tonieboxes", {}).get(b_id, {})
+                    )
+
+                    # REST API does not include placement, and GraphQL returns it
+                    # only for some accounts (400 for others). Fall back to the ICI
+                    # real-time placement (set by _on_ici_message) so the currently
+                    # placed Tonie survives a poll cycle instead of being wiped to {}.
+                    placement = (
+                        gql_placements.get(b_id)
+                        or box.get("placement")
+                        or prev_tb.get("placement")
+                        or {}
+                    )
                     placed_tonie = placement.get("tonie") or {}
 
                     # Normalize: API may return tonieId/tonie_id/id flat instead of
@@ -895,12 +1075,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             placed_tonie["name"] = placed_tonie.get("name") or known.get("name")
                             placed_tonie["imageUrl"] = placed_tonie.get("imageUrl") or known.get("image_url")
 
-                    # Preserve ICI real-time data across REST polling
-                    prev_tb = (
-                        (self.data or {})
-                        .get("households", {}).get(hh_id, {})
-                        .get("tonieboxes", {}).get(b_id, {})
-                    )
+                    # Preserve ICI real-time online state across REST polling
+                    # (prev_tb was looked up above, before placement resolution).
                     ici_online = prev_tb.get("online_state")
                     rest_online = box.get("onlineState")
                     # Keep ICI value if REST returns "unsupported" or None
@@ -960,6 +1136,13 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                         # Legacy / unchanged
                         "firmware": box.get("firmware", {}),
                         "placement": placement,
+                        # Live playback state from ICI (position/chapter/paused);
+                        # REST/GraphQL don't provide it, so carry it across polls.
+                        "playback_state": prev_tb.get("playback_state") or {},
+                        # Live playback volume from ICI (level/hardware %).
+                        "volume": prev_tb.get("volume") or {},
+                        # Live sleep-timer state from ICI (stl).
+                        "sleep_timer": prev_tb.get("sleep_timer") or {},
                         "extras": box.get("extras", {}),
                         "playback_info": playback_info,
                     }

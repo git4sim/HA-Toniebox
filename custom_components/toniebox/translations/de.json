@@ -138,6 +138,7 @@
   "entity": {
     "sensor": {
       "current_tonie": {"name": "Aktuelle Figur"},
+      "current_tonie_id": {"name": "Aktuelle Figur ID"},
       "account": {"name": "Konto"},
       "tonies": {"name": "Kreativ-Tonies"},
       "content_tonies": {"name": "Content Tonies"},
@@ -229,7 +230,8 @@
       "locked_household": {"name": "Im Haushalt gesperrt"},
       "transcoding_active": {"name": "Transkodierung aktiv"},
       "charging": {"name": "Wird geladen"},
-      "headphones_connected": {"name": "Verbunden"}
+      "headphones_connected": {"name": "Verbunden"},
+      "sleeptimer_active": {"name": "Schlaftimer aktiv"}
     }
   }
 }
