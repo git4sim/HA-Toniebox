@@ -831,6 +831,12 @@ Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bu
 
 ---
 
+## 🙏 Besonderer Dank
+
+Ein besonderer Dank geht an [**git4sim/HA-Toniebox**](https://github.com/git4sim/HA-Toniebox) — dieses Projekt basiert auf dieser ursprünglichen Integration und ist ein Fork davon. Großer Dank an [@git4sim](https://github.com/git4sim) für die Grundlage, die dies erst möglich gemacht hat. 🧸
+
+---
+
 ## Legal
 
 - Veröffentlicht unter der **[MIT-Lizenz](LICENSE)**
