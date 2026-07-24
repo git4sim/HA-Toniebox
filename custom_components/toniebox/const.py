@@ -43,8 +43,32 @@ ICI_TOPIC_BATTERY = "metrics/battery"
 ICI_TOPIC_ONLINE = "online-state"
 ICI_TOPIC_HEADPHONES = "metrics/headphones"
 ICI_TOPIC_SETTINGS = "settings-applied"
-# Reported (unverified against a live account) to push Tonie placement /
-# playback events in real time. Subscribed for observation only for now —
-# see _on_message's debug log for the raw payload shape before wiring it
-# into any entity state.
 ICI_TOPIC_PLAYBACK = "playback/state"
+# Live playback volume pushed by the box: {"level": N, "hardwarePercentage": P}
+ICI_TOPIC_VOLUME = "volume/state"
+# Box reply carrying the sleep-timer (stl) state:
+#   {"stl": {"state": "on"|"off"|"completed", "duration": <s>, "until": <epoch>}}
+ICI_TOPIC_BEDTIME = "app-reply/bedtime-state"
+
+# Sleep-timer dropdown options -> duration in seconds ("off" cancels the timer).
+SLEEP_TIMER_OPTIONS: dict[str, int | None] = {
+    "off": None,
+    "15": 900,
+    "30": 1800,
+    "60": 3600,
+}
+
+# ── ICI app-control commands (published by us / the official app) ──────────────
+# Verified by capturing the official Tonies app's MQTT traffic (see
+# tests/capture_commands.py). Commands are published to:
+#   external/toniebox/{MAC}/app-control/{ICI_CMD_*}
+ICI_CMD_PLAYBACK = "playback"      # {"action": "start"|"pause"|"setPosition", ...}
+ICI_CMD_VOLUME = "volume"          # {"level": N}
+ICI_CMD_SLEEP_TIMER = "stl"        # {"state": "on"|"off", "duration": <seconds>}
+# Put the box to sleep NOW (it goes offline). The app sends stl(duration=300)
+# then sleep({}); verified live — box reported online-state "offline" after.
+ICI_CMD_SLEEP_NOW = "sleep"        # {}
+
+# Toniebox volume "level" scale used by app-control/volume. Observed mapping
+# (level -> hardware %): 1->5, 6->40, 7->50, 8->60. Extrapolated max for 100%.
+ICI_VOLUME_MAX_LEVEL = 13

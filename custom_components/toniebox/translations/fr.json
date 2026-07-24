@@ -209,6 +209,9 @@
       "current_tonie": {
         "name": "Figurine actuelle"
       },
+      "current_tonie_id": {
+        "name": "ID figurine actuelle"
+      },
       "battery": {"name": "Batterie actuelle"},
       "battery_status": {"name": "État actuel de la batterie"},
       "last_battery": {"name": "Dernière batterie"},
@@ -282,6 +285,10 @@
       },
       "sort_select": {
         "name": "Trier les chapitres"
+      },
+      "sleep_timer": {
+        "name": "Minuteur de veille",
+        "state": {"off": "Désactivé", "15": "15 minutes", "30": "30 minutes", "60": "60 minutes"}
       }
     },
     "switch": {

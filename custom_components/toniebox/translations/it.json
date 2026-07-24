@@ -209,6 +209,9 @@
       "current_tonie": {
         "name": "Figura attuale"
       },
+      "current_tonie_id": {
+        "name": "ID figura attuale"
+      },
       "battery": {"name": "Batteria attuale"},
       "battery_status": {"name": "Stato batteria attuale"},
       "last_battery": {"name": "Ultima batteria"},
@@ -282,6 +285,10 @@
       },
       "sort_select": {
         "name": "Ordina capitoli"
+      },
+      "sleep_timer": {
+        "name": "Timer di spegnimento",
+        "state": {"off": "Off", "15": "15 minuti", "30": "30 minuti", "60": "60 minuti"}
       }
     },
     "switch": {

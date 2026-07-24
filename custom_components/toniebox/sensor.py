@@ -53,6 +53,7 @@ async def async_setup_entry(
             features = tb.get("features", [])
             entities += [
                 TonieboxCurrentTonieSensor(coordinator, hh_id, tb_id),
+                TonieboxCurrentTonieIdSensor(coordinator, hh_id, tb_id),
                 TonieboxFirmwareSensor(coordinator, hh_id, tb_id),
                 TonieboxLastSeenSensor(coordinator, hh_id, tb_id),
                 TonieboxOnlineStateSensor(coordinator, hh_id, tb_id),
@@ -827,11 +828,12 @@ class TonieboxCurrentTonieSensor(_TbBase):
         pi = self._playback
         # API: series = public Tonie character name (e.g. "Benjamin Blümchen")
         #      title  = content title (e.g. "Benjamin Blümchen und der Weihnachtsmann")
+        # Deliberately no ID fallback — the name belongs here; the raw ID is
+        # exposed by the separate TonieboxCurrentTonieIdSensor.
         return (
             pi.get("series")
             or tonie.get("name")
             or pi.get("title")
-            or tonie.get("id")
             or None
         )
 
@@ -865,3 +867,23 @@ class TonieboxCurrentTonieSensor(_TbBase):
                 for c in pi.get("chapters", [])
             ],
         }
+
+
+class TonieboxCurrentTonieIdSensor(TonieboxCurrentTonieSensor):
+    """The ID of the Tonie currently placed on the box (raw, unresolved)."""
+    _attr_translation_key = "current_tonie_id"
+    _attr_icon = "mdi:identifier"
+    _attr_entity_registry_enabled_default = True
+
+    def __init__(self, coordinator, hh_id, tb_id):
+        super().__init__(coordinator, hh_id, tb_id)
+        self._attr_unique_id = f"tb_{tb_id}_current_tonie_id"
+
+    @property
+    def native_value(self) -> str | None:
+        return self._placed_tonie.get("id") or None
+
+    @property
+    def entity_picture(self) -> str | None:
+        # The ID sensor is text-only; no cover art.
+        return None

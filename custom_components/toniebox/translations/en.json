@@ -138,6 +138,7 @@
   "entity": {
     "sensor": {
       "current_tonie": {"name": "Current Figure"},
+      "current_tonie_id": {"name": "Current Figure ID"},
       "account": {"name": "Account"},
       "tonies": {"name": "Creative Tonies"},
       "content_tonies": {"name": "Content Tonies"},
@@ -198,7 +199,8 @@
         "name": "Box Language",
         "state": {"de": "German", "en": "English", "en-us": "English (US)", "fr": "French"}
       },
-      "sort_select": {"name": "Sort Chapters"}
+      "sort_select": {"name": "Sort Chapters"},
+      "sleep_timer": {"name": "Sleep Timer", "state": {"off": "Off", "15": "15 minutes", "30": "30 minutes", "60": "60 minutes"}}
     },
     "switch": {
       "skipping": {"name": "Skip with Ear Press"},

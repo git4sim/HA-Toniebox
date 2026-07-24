@@ -19,10 +19,12 @@ from .const import (
     ICI_HOST,
     ICI_PORT,
     ICI_TOPIC_BATTERY,
+    ICI_TOPIC_BEDTIME,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_PLAYBACK,
     ICI_TOPIC_SETTINGS,
+    ICI_TOPIC_VOLUME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,8 +35,9 @@ _SUBSCRIBE_TOPICS = [
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_SETTINGS,
-    # Observation only for now — see const.py note on ICI_TOPIC_PLAYBACK.
     ICI_TOPIC_PLAYBACK,
+    ICI_TOPIC_VOLUME,
+    ICI_TOPIC_BEDTIME,
 ]
 
 
@@ -45,11 +48,9 @@ class TonieboxIciClient:
         self,
         on_message_callback: Callable[[str, str, dict[str, Any]], None],
         loop: asyncio.AbstractEventLoop | None = None,
-        on_auth_failed: Callable[[], Any] | None = None,
     ) -> None:
         self._on_message_callback = on_message_callback
         self._loop = loop
-        self._on_auth_failed = on_auth_failed
         self._client: mqtt.Client | None = None
         self._connected = False
         self._boxes: list[dict] = []
@@ -84,32 +85,31 @@ class TonieboxIciClient:
         client_id = f"{user_uuid}_ha_toniebox_{random_id}"
 
         def _setup_and_connect():
-            """Set up MQTT client (blocking TLS calls) and connect.
-
-            Builds the client on a local variable and only publishes it to
-            self._client once fully configured, so a concurrent connect/
-            reconnect for this instance can't observe (or race on) a
-            partially-configured client via the shared attribute.
-            """
-            client = mqtt.Client(
+            """Set up MQTT client (blocking TLS calls) and connect."""
+            self._client = mqtt.Client(
                 callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
                 client_id=client_id,
                 transport="websockets",
                 protocol=mqtt.MQTTv5,
             )
-            client.ws_set_options(path="/")
-            # tls_set() never accepts an ssl_context kwarg in any paho-mqtt
-            # version — tls_set_context() is the correct API for supplying a
-            # pre-built ssl.SSLContext (here from create_default_context()
-            # for full cert verification).
-            client.tls_set_context(ssl.create_default_context())
-            client.username_pw_set(username=user_uuid, password=access_token)
-            client.reconnect_delay_set(min_delay=5, max_delay=120)
-            client.on_connect = self._on_connect
-            client.on_message = self._on_message
-            client.on_disconnect = self._on_disconnect
-            client.connect_async(ICI_HOST, ICI_PORT, keepalive=60)
-            self._client = client
+            self._client.ws_set_options(path="/")
+            # Use create_default_context() for full cert verification;
+            # avoids the deprecated ssl.PROTOCOL_TLS_CLIENT path in paho that
+            # can leave _ssl_context unset and break tls_insecure_set().
+            ssl_ctx = ssl.create_default_context()
+            try:
+                self._client.tls_set(ssl_context=ssl_ctx)
+            except TypeError:
+                # paho-mqtt < 2.0 does not support the ssl_context kwarg;
+                # initialise TLS normally and then swap in our context.
+                self._client.tls_set()
+                self._client._ssl_context = ssl_ctx
+            self._client.username_pw_set(username=user_uuid, password=access_token)
+            self._client.reconnect_delay_set(min_delay=5, max_delay=120)
+            self._client.on_connect = self._on_connect
+            self._client.on_message = self._on_message
+            self._client.on_disconnect = self._on_disconnect
+            self._client.connect_async(ICI_HOST, ICI_PORT, keepalive=60)
 
         try:
             await self._loop.run_in_executor(None, _setup_and_connect)
@@ -130,20 +130,26 @@ class TonieboxIciClient:
                 self._client = None
                 self._connected = False
 
-    async def _handle_auth_failure(self) -> None:
-        """Clean up after an MQTT auth failure and ask for a fresh token now.
+    def publish_command(self, mac: str, command_type: str, payload: dict[str, Any]) -> bool:
+        """Publish an app-control command to a Toniebox (QoS 1).
 
-        Without this, ICI would sit idle until the next REST poll cycle
-        (up to UPDATE_INTERVAL_MINUTES) happened to refresh the token.
+        Mirrors what the official Tonies app sends. Topic:
+            external/toniebox/{MAC}/app-control/{command_type}
+        The MAC must match the case used for subscriptions (upper-case, as the
+        broker delivers state topics on the upper-case MAC). Returns True if the
+        publish was handed to paho, False if we're not connected.
         """
-        await self.disconnect()
-        if self._on_auth_failed:
-            try:
-                result = self._on_auth_failed()
-                if result is not None:
-                    await result
-            except Exception:
-                _LOGGER.debug("ICI on_auth_failed callback raised", exc_info=True)
+        if not self._client or not self._connected:
+            _LOGGER.warning("ICI not connected — cannot send command %s", command_type)
+            return False
+        topic = f"external/toniebox/{mac}/app-control/{command_type}"
+        try:
+            info = self._client.publish(topic, json.dumps(payload), qos=1)
+            _LOGGER.debug("ICI PUBLISH %s: %s (rc=%s)", topic, payload, info.rc)
+            return info.rc == mqtt.MQTT_ERR_SUCCESS
+        except Exception:
+            _LOGGER.warning("Failed to publish ICI command to %s", topic, exc_info=True)
+            return False
 
     async def reconnect(self, new_token: str) -> None:
         """Reconnect with a new access token."""
@@ -192,7 +198,7 @@ class TonieboxIciClient:
                 # before the async cleanup below has a chance to run.
                 client.disconnect()
                 if self._loop:
-                    asyncio.run_coroutine_threadsafe(self._handle_auth_failure(), self._loop)
+                    asyncio.run_coroutine_threadsafe(self.disconnect(), self._loop)
         else:
             self._connected = False
             _LOGGER.warning("ICI MQTT connection failed: %s", rc_str)
