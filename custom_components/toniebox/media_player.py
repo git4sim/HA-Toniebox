@@ -5,6 +5,8 @@ import logging
 from typing import Any
 
 from homeassistant.components.media_player import (
+    BrowseMedia,
+    MediaClass,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
@@ -148,6 +150,9 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         # Turn OFF = put to sleep. Turn ON isn't possible (box is offline and
         # can't be woken over the cloud), so TURN_ON is intentionally omitted.
         | MediaPlayerEntityFeature.TURN_OFF
+        # Browse the placed Tonie's chapters and jump to any of them.
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
+        | MediaPlayerEntityFeature.PLAY_MEDIA
     )
 
     def __init__(self, coordinator, hh_id: str, tb_id: str) -> None:
@@ -205,22 +210,28 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         """Live playback state pushed via ICI (position/chapter/paused)."""
         return self._tb.get("playback_state") or {}
 
-    def _chapter_title(self) -> str | None:
-        """Resolve the title of the currently playing chapter (1-indexed)."""
-        chapter = self._playback_state.get("chapter")
-        if not isinstance(chapter, int) or chapter < 1:
-            return None
-        # Prefer chapters from the box's playback_info, fall back to the known
-        # tonie record (creative tonies carry their own chapter list).
+    def _chapters(self) -> list[dict]:
+        """Chapter list of the currently placed Tonie (each a dict with a title).
+
+        Prefers the box's playback_info, falls back to the known tonie record
+        (creative tonies carry their own chapter list).
+        """
         info = self._tb.get("playback_info", {})
         chapters = info.get("chapters")
         if not chapters:
             known = self._known_tonie(self._placed_tonie().get("id", ""))
             chapters = known.get("chapters") if known else None
-        if chapters and chapter <= len(chapters):
+        return [c for c in (chapters or []) if isinstance(c, dict)]
+
+    def _chapter_title(self) -> str | None:
+        """Resolve the title of the currently playing chapter (1-indexed)."""
+        chapter = self._playback_state.get("chapter")
+        if not isinstance(chapter, int) or chapter < 1:
+            return None
+        chapters = self._chapters()
+        if chapter <= len(chapters):
             ch = chapters[chapter - 1]
-            if isinstance(ch, dict):
-                return ch.get("title") or ch.get("tuneTitle")
+            return ch.get("title") or ch.get("tuneTitle")
         return None
 
     @property
@@ -357,6 +368,55 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         """Put the Toniebox to sleep (it goes offline). Cannot be turned on again."""
         if self._is_tng:
             self.coordinator.ici_sleep_now(self._mac)
+
+    # ── Chapter browsing / jumping ─────────────────────────────────────────────
+
+    async def async_browse_media(
+        self, media_content_type: str | None = None, media_content_id: str | None = None
+    ) -> BrowseMedia:
+        """Expose the placed Tonie's chapters as a browsable list."""
+        current = self._playback_state.get("chapter")
+        children = []
+        for idx, ch in enumerate(self._chapters(), start=1):
+            title = ch.get("title") or ch.get("tuneTitle") or f"Kapitel {idx}"
+            # Mark the chapter that is playing right now.
+            label = f"▶ {title}" if idx == current else title
+            children.append(
+                BrowseMedia(
+                    title=label,
+                    media_class=MediaClass.TRACK,
+                    media_content_type=MediaType.MUSIC,
+                    media_content_id=f"chapter:{idx}",
+                    can_play=True,
+                    can_expand=False,
+                )
+            )
+        tonie = self._placed_tonie()
+        return BrowseMedia(
+            title=tonie.get("name") or "Kapitel",
+            media_class=MediaClass.DIRECTORY,
+            media_content_type="chapters",
+            media_content_id="chapters",
+            can_play=False,
+            can_expand=True,
+            children=children,
+            children_media_class=MediaClass.TRACK,
+        )
+
+    async def async_play_media(
+        self, media_type: str, media_id: str, **kwargs: Any
+    ) -> None:
+        """Jump to a chapter selected from the browse list (media_id 'chapter:N')."""
+        if not self._is_tng or not media_id.startswith("chapter:"):
+            return
+        try:
+            chapter = int(media_id.split(":", 1)[1])
+        except ValueError:
+            return
+        if chapter >= 1:
+            self.coordinator.ici_playback_command(
+                self._mac, "setPosition", chapter=chapter, ms=0
+            )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

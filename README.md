@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/git4sim/HA-Toniebox/main/logo.png" alt="HA-Toniebox Logo" width="160" />
+  <img src="https://raw.githubusercontent.com/xylonm/HA-Toniebox/main/logo.png" alt="HA-Toniebox Logo" width="160" />
 </p>
 
 <h1 align="center">HA-Toniebox</h1>
@@ -13,9 +13,9 @@
   <a href="https://github.com/hacs/integration">
     <img src="https://img.shields.io/badge/HACS-Custom-orange.svg?logo=home-assistant&logoColor=white" alt="HACS Custom"/>
   </a>
-  <img src="https://img.shields.io/github/v/release/git4sim/HA-Toniebox?label=version&color=blue" alt="Version"/>
+  <img src="https://img.shields.io/github/v/release/xylonm/HA-Toniebox?label=version&color=blue" alt="Version"/>
   <img src="https://img.shields.io/badge/HA-2026.3%2B-brightgreen?logo=home-assistant" alt="Home Assistant"/>
-  <img src="https://img.shields.io/github/license/git4sim/HA-Toniebox?color=lightgrey" alt="MIT License"/>
+  <img src="https://img.shields.io/github/license/xylonm/HA-Toniebox?color=lightgrey" alt="MIT License"/>
   <img src="https://img.shields.io/badge/vibecoded-%F0%9F%A4%96-blueviolet" alt="Vibecoded"/>
 </p>
 
@@ -56,16 +56,16 @@
 
 ## Installation via HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=git4sim&repository=HA-Toniebox&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=xylonm&repository=HA-Toniebox&category=integration)
 
 > [!NOTE]
-> If the button does not work: add `https://github.com/git4sim/HA-Toniebox` manually in HACS as a Custom Repository of type **Integration**, search for **Toniebox** and download.
+> If the button does not work: add `https://github.com/xylonm/HA-Toniebox` manually in HACS as a Custom Repository of type **Integration**, search for **Toniebox** and download.
 
 Restart Home Assistant after download.
 
 ### Manual Installation
 
-Copy the `custom_components/toniebox/` folder from the [latest release](https://github.com/git4sim/HA-Toniebox/releases/latest) into your HA configuration directory:
+Copy the `custom_components/toniebox/` folder from the [latest release](https://github.com/xylonm/HA-Toniebox/releases/latest) into your HA configuration directory:
 
 ```
 /config/custom_components/toniebox/
@@ -425,6 +425,12 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 
 ---
 
+## 🙏 Special Thanks
+
+A special thank you to [**git4sim/HA-Toniebox**](https://github.com/git4sim/HA-Toniebox) — this project is based on and forked from that original integration. Huge thanks to [@git4sim](https://github.com/git4sim) for the groundwork that made this possible. 🧸
+
+---
+
 ## Legal
 
 - Published under the **[MIT License](LICENSE)**
@@ -456,16 +462,16 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 
 ## Installation via HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=git4sim&repository=HA-Toniebox&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=xylonm&repository=HA-Toniebox&category=integration)
 
 > [!NOTE]
-> Falls der Button nicht funktioniert: `https://github.com/git4sim/HA-Toniebox` in HACS manuell als Custom Repository vom Typ **Integration** hinzufügen, nach **Toniebox** suchen und herunterladen.
+> Falls der Button nicht funktioniert: `https://github.com/xylonm/HA-Toniebox` in HACS manuell als Custom Repository vom Typ **Integration** hinzufügen, nach **Toniebox** suchen und herunterladen.
 
 Nach dem Download Home Assistant neu starten.
 
 ### Manuelle Installation
 
-Den Ordner `custom_components/toniebox/` aus dem [neuesten Release](https://github.com/git4sim/HA-Toniebox/releases/latest) in das HA-Konfigurationsverzeichnis kopieren:
+Den Ordner `custom_components/toniebox/` aus dem [neuesten Release](https://github.com/xylonm/HA-Toniebox/releases/latest) in das HA-Konfigurationsverzeichnis kopieren:
 
 ```
 /config/custom_components/toniebox/
@@ -834,4 +840,4 @@ Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bu
 
 ---
 
-<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Report a bug / Bug melden</a></p>
+<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/xylonm/HA-Toniebox/issues">Report a bug / Bug melden</a></p>
