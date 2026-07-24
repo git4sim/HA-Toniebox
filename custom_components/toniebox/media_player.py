@@ -147,9 +147,12 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         | MediaPlayerEntityFeature.PREVIOUS_TRACK
         | MediaPlayerEntityFeature.VOLUME_SET
         | MediaPlayerEntityFeature.VOLUME_STEP
-        # Turn OFF = put to sleep. Turn ON isn't possible (box is offline and
-        # can't be woken over the cloud), so TURN_ON is intentionally omitted.
+        # TURN_OFF = put to sleep. TURN_ON = resume playback (the box cannot be
+        # woken from sleep over the cloud, so it is a no-op while offline). Both
+        # are advertised so media_player.toggle works — the toggle service
+        # requires TURN_ON and TURN_OFF together (used by e.g. Bubble Card).
         | MediaPlayerEntityFeature.TURN_OFF
+        | MediaPlayerEntityFeature.TURN_ON
         # Browse the placed Tonie's chapters and jump to any of them.
         | MediaPlayerEntityFeature.BROWSE_MEDIA
         | MediaPlayerEntityFeature.PLAY_MEDIA
@@ -371,9 +374,16 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         self.coordinator.ici_set_volume_level(self._mac, base - 1)
 
     async def async_turn_off(self) -> None:
-        """Put the Toniebox to sleep (it goes offline). Cannot be turned on again."""
+        """Put the Toniebox to sleep (it goes offline)."""
         if self._is_tng:
             self.coordinator.ici_sleep_now(self._mac)
+
+    async def async_turn_on(self) -> None:
+        """Resume playback ('on'). The box can't be woken from sleep over the
+        cloud, so this only has an effect while it is awake; it exists mainly so
+        media_player.toggle is available (that service needs TURN_ON+TURN_OFF)."""
+        if self._is_tng:
+            self.coordinator.ici_playback_command(self._mac, "start")
 
     # ── Chapter browsing / jumping ─────────────────────────────────────────────
 
