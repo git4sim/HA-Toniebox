@@ -45,7 +45,8 @@
 - 🎚️ **Live "now playing"** — current chapter title, progress bar and play/pause state
 - ⏲️ **Sleep timer** — start a timer via the `toniebox.sleeptimer` action, with a `sleeptimer_active` binary sensor
 - 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level, active figure and figure ID
-- 🔘 **Buttons** to sort (title / filename / date), clear and refresh
+- 🔘 **Buttons** to sort (title / filename / date), shuffle, clear and refresh
+- 🔀 **Shuffle** the chapter order on demand (`sort_chapters` with `sort_by: random`) or automatically **on swap** — a per-Creative-Tonie switch that reshuffles a Tonie once a different one replaces it on a box
 - 🔴 **Binary Sensors** for transcoding, live mode, household lock, active figure and running sleep timer
 - 🎛️ **Switches** for LED, chapter skipping, scrubbing, offline mode, household lock
 - 🌐 **Select entities** for language, LED level, tap direction, age mode
@@ -170,6 +171,7 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `sensor.<tonie>_transcoding` | Transcoding status |
 | `switch.<tonie>_private` | Hide Tonie from guest members |
 | `switch.<tonie>_live` | Enable live mode |
+| `switch.<tonie>_shuffle_on_swap` | **Local only** — when on, this Tonie's chapters are shuffled once it is replaced on a box by a *different* Tonie |
 | `binary_sensor.<tonie>_transcoding` | Transcoding in progress |
 | `binary_sensor.<tonie>_live` | Live status |
 | `binary_sensor.<tonie>_private` | Private status |
@@ -177,8 +179,14 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `button.<tonie>_sort_by_title` | Sort chapters alphabetically |
 | `button.<tonie>_sort_by_filename` | Sort chapters by filename |
 | `button.<tonie>_sort_by_date` | Sort chapters by date |
+| `button.<tonie>_shuffle_chapters` | Shuffle chapters into a random order |
 | `button.<tonie>_refresh` | Reload Tonie data |
-| `select.<tonie>_sort_chapters` | Select and apply sort order |
+
+> **Shuffle on swap** (`switch.<tonie>_shuffle_on_swap`) is a local convenience toggle with no counterpart in the Tonie Cloud:
+> - Only a *displacement* counts: the shuffle fires for the Tonie that gets **replaced** on a box by a different Tonie. Simply lifting a Tonie off (box goes empty) never shuffles it, so you can pick it up and put it back later to keep listening where you left off.
+> - Only **Creative Tonies** with **≥ 2 chapters** are shuffled.
+> - Each shuffle triggers a full re-transcode on the Tonie Cloud (typically 1–60 s) — expected, not an error.
+> - Real-time on the Toniebox 2 (TNG) via the cloud's push channel; on older boxes it is detected on the next poll (up to 5 min).
 
 ---
 
@@ -190,8 +198,10 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 service: toniebox.sort_chapters
 data:
   entity_id: media_player.my_tonie
-  sort_by: title   # title | filename | date
+  sort_by: title   # title | filename | date | random
 ```
+
+> `random` shuffles the chapters into a new random order. Like every reorder, it triggers a full re-transcode of the Tonie on the Tonie Cloud (typically 1–60 s). Needs at least 2 chapters.
 
 ### `toniebox.clear_chapters` — Clear All Chapters
 
@@ -501,7 +511,8 @@ A special thank you to [**git4sim/HA-Toniebox**](https://github.com/git4sim/HA-T
 - 🎚️ **Live „Now Playing"** — aktueller Kapiteltitel, Fortschrittsbalken und Play/Pause-Status
 - ⏲️ **Schlaftimer** — per Action `toniebox.sleeptimer` starten, mit Binary-Sensor `sleeptimer_active`
 - 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand, aktive Figur und Figur-ID
-- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Leeren und Aktualisieren
+- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Mischen, Leeren und Aktualisieren
+- 🔀 **Mischen** der Kapitelreihenfolge auf Wunsch (`sort_chapters` mit `sort_by: random`) oder automatisch **beim Wechsel** — ein Schalter pro Creative Tonie, der einen Tonie neu mischt, sobald er auf einer Box durch einen anderen ersetzt wird
 - 🔴 **Binary Sensors** für Transcoding, Live-Modus, Haushalt-Lock, aktive Figur und laufenden Schlaftimer
 - 🎛️ **Switches** für LED, Kapitel-Überspringen, Scrubbing, Offline-Modus, Haushalt-Sperren
 - 🌐 **Select-Entities** für Sprache, LED-Level, Tap-Richtung, Alters-Modus
@@ -626,6 +637,7 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `sensor.<tonie>_transkodierung` | Transkodierungs-Status |
 | `switch.<tonie>_privat` | Tonie für Gastmitglieder ausblenden |
 | `switch.<tonie>_live` | Live-Modus aktivieren |
+| `switch.<tonie>_shuffle_on_swap` | **Nur lokal** — wenn aktiv, werden die Kapitel dieses Tonies gemischt, sobald er auf einer Box durch einen *anderen* Tonie ersetzt wird |
 | `binary_sensor.<tonie>_wird_verarbeitet` | Transkodierung läuft |
 | `binary_sensor.<tonie>_live` | Live-Status |
 | `binary_sensor.<tonie>_privat` | Privat-Status |
@@ -633,8 +645,14 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `button.<tonie>_nach_titel_sortieren` | Kapitel alphabetisch sortieren |
 | `button.<tonie>_nach_dateiname_sortieren` | Kapitel nach Dateiname sortieren |
 | `button.<tonie>_nach_datum_sortieren` | Kapitel nach Datum sortieren |
+| `button.<tonie>_kapitel_mischen` | Kapitel in eine zufällige Reihenfolge mischen |
 | `button.<tonie>_aktualisieren` | Tonie-Daten neu laden |
-| `select.<tonie>_kapitel_sortieren` | Sortierart auswählen und anwenden |
+
+> **Beim Wechsel mischen** (`switch.<tonie>_shuffle_on_swap`) ist ein rein lokaler Schalter ohne Entsprechung in der Tonie Cloud:
+> - Nur die *Verdrängung* zählt: Gemischt wird der Tonie, der auf einer Box durch einen **anderen** Tonie ersetzt wird. Das bloße Abnehmen (Box wird leer) löst kein Mischen aus — so kannst du ihn abnehmen und später wieder auflegen, um weiterzuhören.
+> - Nur **Kreativ-Tonies** mit **≥ 2 Kapiteln** werden gemischt.
+> - Jedes Mischen löst ein vollständiges Neu-Transkodieren in der Tonie Cloud aus (typisch 1–60 s) — das ist normal, kein Fehler.
+> - In Echtzeit auf der Toniebox 2 (TNG) über den Push-Kanal der Cloud; auf älteren Boxen wird es beim nächsten Poll erkannt (bis zu 5 Min.).
 
 ---
 
@@ -646,8 +664,10 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 service: toniebox.sort_chapters
 data:
   entity_id: media_player.mein_tonie
-  sort_by: title   # title | filename | date
+  sort_by: title   # title | filename | date | random
 ```
+
+> `random` mischt die Kapitel in eine neue zufällige Reihenfolge. Wie jede Umsortierung löst das ein vollständiges Neu-Transkodieren des Tonies in der Tonie Cloud aus (typisch 1–60 s). Es werden mindestens 2 Kapitel benötigt.
 
 ### `toniebox.clear_chapters` — Alle Kapitel löschen
 

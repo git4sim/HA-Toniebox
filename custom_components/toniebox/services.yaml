@@ -23,7 +23,7 @@ sort_chapters:
           domain: media_player
     sort_by:
       name: Sort By
-      description: Sort chapters by title, filename, or date.
+      description: Sort chapters by title, filename or date, or "random" to shuffle them into a new random order.
       default: title
       selector:
         select:
@@ -31,6 +31,7 @@ sort_chapters:
             - title
             - filename
             - date
+            - random
 
 remove_chapter:
   name: Remove Chapter

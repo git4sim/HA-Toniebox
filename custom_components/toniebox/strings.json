@@ -41,7 +41,7 @@
       "description": "Sort the chapters on a Creative Tonie.",
       "fields": {
         "entity_id": { "name": "Creative Tonie", "description": "The media_player entity of the target creative tonie." },
-        "sort_by": { "name": "Sort By", "description": "Sort chapters by: title, filename, or date." }
+        "sort_by": { "name": "Sort By", "description": "Sort chapters by: title, filename, date, or random (shuffle into a new random order)." }
       }
     },
     "remove_chapter": {
@@ -197,8 +197,7 @@
       "language": {
         "name": "Box Language",
         "state": {"de": "German", "en": "English", "en-us": "English (US)", "fr": "French"}
-      },
-      "sort_select": {"name": "Sort Chapters"}
+      }
     },
     "switch": {
       "skipping": {"name": "Skip with Ear Press"},
@@ -207,6 +206,7 @@
       "accelerometer": {"name": "Tilt & Tap"},
       "private": {"name": "Play in This Household Only"},
       "live": {"name": "Live Mode"},
+      "shuffle_on_swap": {"name": "Shuffle on swap"},
       "lock_household": {"name": "Lock to Household"}
     },
     "button": {
@@ -215,6 +215,7 @@
       "sort_by_title": {"name": "Sort by Title"},
       "sort_by_filename": {"name": "Sort by Filename"},
       "sort_by_date": {"name": "Sort by Date"},
+      "sort_by_random": {"name": "Shuffle Chapters"},
       "refresh": {"name": "Refresh"},
       "factory_reset": {"name": "Factory Reset"},
       "remove_tune": {"name": "Remove Tune"}

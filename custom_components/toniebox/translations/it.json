@@ -49,7 +49,7 @@
         },
         "sort_by": {
           "name": "Ordina per",
-          "description": "Ordina i capitoli per: titolo, nome file o data."
+          "description": "Ordina i capitoli per: titolo, nome file, data o casuale (rimescola in un nuovo ordine casuale)."
         }
       }
     },
@@ -283,9 +283,6 @@
           "en-us": "Inglese (USA)",
           "fr": "Francese"
         }
-      },
-      "sort_select": {
-        "name": "Ordina capitoli"
       }
     },
     "switch": {
@@ -306,6 +303,9 @@
       },
       "live": {
         "name": "Modalità live"
+      },
+      "shuffle_on_swap": {
+        "name": "Mescola al cambio"
       }
     }
   }

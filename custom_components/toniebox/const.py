@@ -34,7 +34,15 @@ SERVICE_MOVE_CHAPTER = "move_chapter"
 SORT_BY_TITLE = "title"
 SORT_BY_FILENAME = "filename"
 SORT_BY_DATE = "date"
-SORT_OPTIONS = [SORT_BY_TITLE, SORT_BY_FILENAME, SORT_BY_DATE]
+SORT_BY_RANDOM = "random"
+SORT_OPTIONS = [SORT_BY_TITLE, SORT_BY_FILENAME, SORT_BY_DATE, SORT_BY_RANDOM]
+
+# ── Shuffle-on-swap ────────────────────────────────────────────────────────────
+# Local-only per-Creative-Tonie toggle: when the Tonie gets displaced on a box by
+# a *different* Tonie, its chapters are shuffled (sort_by="random"). The switch
+# state lives in a per-config-entry Store (no counterpart in the Tonie Cloud).
+STORAGE_VERSION = 1
+STORAGE_KEY_SHUFFLE = f"{DOMAIN}_shuffle"  # actual key gets the entry_id suffixed
 
 # ICI (MQTT v5 real-time push)
 ICI_HOST = "ici.tonie.cloud"

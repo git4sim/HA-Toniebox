@@ -1,4 +1,4 @@
-"""Select platform — enum settings for Tonieboxes + sort selector for Creative Tonies."""
+"""Select platform — enum settings for Tonieboxes + language select for Content Tonies."""
 from __future__ import annotations
 
 import logging
@@ -10,9 +10,9 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, SORT_OPTIONS, SORT_BY_TITLE
+from .const import DOMAIN
 from .content_tonie import ContentTonieLanguageSelect
-from .device_info import creative_tonie_device_info, toniebox_device_info
+from .device_info import toniebox_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,10 +106,6 @@ async def async_setup_entry(
                     continue
                 entities.append(TonieboxSelect(coordinator, hh_id, tb_id, desc))
 
-        # Creative Tonie: sort selector
-        for t_id in hh.get("creativetonies", {}):
-            entities.append(TonieSortSelect(coordinator, hh_id, t_id))
-
     # ── Content Tonie selects ─────────────────────────────────────────────────
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for ct_id in hh.get("contenttonies", {}):
@@ -187,33 +183,4 @@ class TonieboxSelect(CoordinatorEntity, SelectEntity):
         await self.coordinator.client.patch_toniebox(
             self._hh_id, self._tb_id, {self._desc.api_key: option}
         )
-        await self.coordinator.async_request_refresh()
-
-
-# ── Creative Tonie sort selector ──────────────────────────────────────────────
-
-class TonieSortSelect(CoordinatorEntity, SelectEntity):
-    _attr_has_entity_name = True
-    _attr_options = SORT_OPTIONS
-    _attr_icon = "mdi:sort"
-    _attr_translation_key = "sort_select"
-
-    def __init__(self, coordinator, hh_id: str, t_id: str) -> None:
-        super().__init__(coordinator)
-        self._hh_id = hh_id
-        self._t_id = t_id
-        self._current = SORT_BY_TITLE
-        self._attr_unique_id = f"ct_{t_id}_sort_select"
-
-    @property
-    def device_info(self) -> dict:
-        return creative_tonie_device_info(self.coordinator, self._hh_id, self._t_id)
-
-    @property
-    def current_option(self) -> str:
-        return self._current
-
-    async def async_select_option(self, option: str) -> None:
-        self._current = option
-        await self.coordinator.client.sort_chapters(self._hh_id, self._t_id, option)
         await self.coordinator.async_request_refresh()

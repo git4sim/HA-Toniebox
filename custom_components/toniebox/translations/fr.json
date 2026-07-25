@@ -49,7 +49,7 @@
         },
         "sort_by": {
           "name": "Trier par",
-          "description": "Trier les chapitres par : titre, nom de fichier ou date."
+          "description": "Trier les chapitres par : titre, nom de fichier, date ou aléatoire (mélanger dans un nouvel ordre aléatoire)."
         }
       }
     },
@@ -283,9 +283,6 @@
           "en-us": "Anglais (É.-U.)",
           "fr": "Français"
         }
-      },
-      "sort_select": {
-        "name": "Trier les chapitres"
       }
     },
     "switch": {
@@ -306,6 +303,9 @@
       },
       "live": {
         "name": "Mode en direct"
+      },
+      "shuffle_on_swap": {
+        "name": "Mélanger au changement"
       }
     }
   }

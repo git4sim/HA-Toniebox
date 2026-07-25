@@ -1,5 +1,19 @@
 [
   {
+    "version": "3.7.14",
+    "date": "2026-07-25",
+    "changes": {
+      "added": [
+        "sort_chapters: neue Sortierung 'random' — mischt die Kapitel eines Kreativ-Tonies in eine zufällige Reihenfolge (löst wie jede Umsortierung ein Neu-Transkodieren aus)",
+        "Button 'Kapitel mischen' pro Kreativ-Tonie zum direkten Zufallsmischen",
+        "Schalter 'Beim Wechsel mischen' pro Kreativ-Tonie: mischt die Kapitel automatisch, sobald der Tonie auf einer Box durch einen anderen Tonie verdrängt wird (nur Kreativ-Tonies mit mindestens 2 Kapiteln; reines Abnehmen löst nichts aus). Erkennung live via ICI-MQTT (TNG) bzw. beim 5-Minuten-Poll; der Schalterzustand wird persistent gespeichert"
+      ],
+      "changed": [
+        "Sortier-Auswahl (select 'Kapitel sortieren') entfernt — alle vier Sortiermodi (Titel/Dateiname/Datum/Zufall) gibt es jetzt als Buttons; die alte Select-Entität wird nach dem Update als 'nicht verfügbar' angezeigt und kann gelöscht werden"
+      ]
+    }
+  },
+  {
     "version": "3.7.11",
     "date": "2026-07-23",
     "changes": {

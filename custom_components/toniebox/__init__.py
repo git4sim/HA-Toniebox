@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -21,6 +22,7 @@ from .const import (
     ICI_TOPIC_PLAYBACK, ICI_TOPIC_VOLUME, ICI_TOPIC_BEDTIME,
     ICI_CMD_PLAYBACK, ICI_CMD_VOLUME, ICI_VOLUME_MAX_LEVEL,
     ICI_CMD_SLEEP_TIMER, ICI_CMD_SLEEP_NOW,
+    SORT_BY_RANDOM, STORAGE_VERSION, STORAGE_KEY_SHUFFLE,
 )
 from .ici_client import TonieboxIciClient
 from .tonie_client import TonieCloudClient, TonieCloudAuthError, TonieCloudAPIError
@@ -59,6 +61,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
         raise ConfigEntryNotReady(f"Could not fetch data: {err}") from err
+
+    # Load persisted "shuffle on swap" switch states before platforms are set up.
+    await coordinator.async_load_shuffle()
 
     # Start ICI real-time connection for TNG boxes
     await coordinator.async_start_ici()
@@ -172,7 +177,7 @@ def _register_services(hass: HomeAssistant) -> None:
         DOMAIN, "sort_chapters", handle_sort_chapters,
         schema=vol.Schema({
             vol.Required("entity_id"): cv.string,
-            vol.Optional("sort_by", default="title"): vol.In(["title", "filename", "date"]),
+            vol.Optional("sort_by", default="title"): vol.In(["title", "filename", "date", "random"]),
         }),
     )
 
@@ -413,11 +418,116 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         self.entry = entry
         self.ici_client: TonieboxIciClient | None = None
         self._mac_to_tb: dict[str, tuple[str, str]] = {}  # mac → (hh_id, tb_id)
+        # ── Shuffle on swap ──
+        # Persisted per-Creative-Tonie toggle (tonie_id → bool).
+        self.shuffle_enabled: dict[str, bool] = {}
+        self._shuffle_store: Store | None = None
+        # Last placed tonie per box (box_id → tonie_id | None), tracked in memory
+        # to detect a *displacement* (one tonie replaced by a different one).
+        self._last_placed: dict[str, str | None] = {}
         super().__init__(
             hass, _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(minutes=UPDATE_INTERVAL_MINUTES),
         )
+
+    # ── Shuffle on swap ────────────────────────────────────────────────────────
+
+    async def async_load_shuffle(self) -> None:
+        """Load persisted 'shuffle on swap' switch states from the Store."""
+        self._shuffle_store = Store(
+            self.hass, STORAGE_VERSION, f"{STORAGE_KEY_SHUFFLE}_{self.entry.entry_id}"
+        )
+        try:
+            stored = await self._shuffle_store.async_load()
+        except Exception:
+            _LOGGER.warning("Could not load shuffle-on-swap state", exc_info=True)
+            stored = None
+        enabled = (stored or {}).get("shuffleEnabled")
+        if isinstance(enabled, dict):
+            self.shuffle_enabled = {k: bool(v) for k, v in enabled.items()}
+
+    def is_shuffle_enabled(self, tonie_id: str) -> bool:
+        """Return True if 'shuffle on swap' is active for this Creative Tonie."""
+        return bool(self.shuffle_enabled.get(tonie_id))
+
+    async def async_set_shuffle_enabled(self, tonie_id: str, enabled: bool) -> None:
+        """Persist the 'shuffle on swap' toggle for a Creative Tonie."""
+        self.shuffle_enabled[tonie_id] = enabled
+        if self._shuffle_store:
+            self._shuffle_store.async_delay_save(
+                lambda: {"shuffleEnabled": self.shuffle_enabled}, 1
+            )
+
+    def _find_creative_tonie(self, tonie_id: str, data: dict) -> tuple[str | None, dict | None]:
+        """Return (household_id, tonie_dict) for a Creative Tonie id, or (None, None)."""
+        for hh_id, hh in (data or {}).get("households", {}).items():
+            tonie = hh.get("creativetonies", {}).get(tonie_id)
+            if tonie is not None:
+                return hh_id, tonie
+        return None, None
+
+    def _note_placement(self, tb_id: str, current_tonie_id: str | None, data: dict) -> None:
+        """Update last-placed tracking for a box and shuffle the displaced Tonie.
+
+        A shuffle is only triggered when a Creative Tonie with the switch enabled
+        (and ≥ 2 chapters) is replaced on a box by a *different* Tonie. Merely
+        removing a Tonie (box goes empty) never triggers a shuffle, so you can
+        pick a figure up and later put it back to continue where it left off.
+        """
+        old_tonie_id = self._last_placed.get(tb_id)
+        self._last_placed[tb_id] = current_tonie_id
+
+        if not current_tonie_id:
+            return  # box emptied → removal only, never a shuffle
+        if old_tonie_id is None:
+            return  # first placement seen for this box → no predecessor
+        if old_tonie_id == current_tonie_id:
+            return  # no real change
+        # old_tonie_id was displaced by a different tonie → maybe shuffle it
+        if not self.is_shuffle_enabled(old_tonie_id):
+            return
+        hh_id, tonie = self._find_creative_tonie(old_tonie_id, data)
+        if tonie is None:
+            return  # not a Creative Tonie (content tonies/discs can't be reordered)
+        chapter_count = tonie.get("chapter_count")
+        if chapter_count is None:
+            chapter_count = len(tonie.get("chapters", []))
+        if chapter_count < 2:
+            return
+        self.hass.async_create_task(self._async_shuffle_on_swap(hh_id, old_tonie_id))
+
+    def _process_placements(self, data: dict) -> None:
+        """Feed the current placement of every box into the swap detector."""
+        for hh in data.get("households", {}).values():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                placed = (tb.get("placement") or {}).get("tonie") or {}
+                tonie_id = placed.get("id") if isinstance(placed, dict) else None
+                self._note_placement(tb_id, tonie_id, data)
+
+    async def _async_shuffle_on_swap(self, hh_id: str, tonie_id: str) -> None:
+        """Shuffle a Creative Tonie's chapters after it was swapped out."""
+        # Re-check right before executing — state/content may have changed.
+        if not self.is_shuffle_enabled(tonie_id):
+            return
+        found_hh, tonie = self._find_creative_tonie(tonie_id, self.data or {})
+        hh_id = found_hh or hh_id
+        if tonie is None:
+            return
+        chapter_count = tonie.get("chapter_count")
+        if chapter_count is None:
+            chapter_count = len(tonie.get("chapters", []))
+        if chapter_count < 2:
+            return
+        try:
+            await self.client.sort_chapters(hh_id, tonie_id, SORT_BY_RANDOM)
+            _LOGGER.info(
+                "Auto-shuffled chapters of Creative Tonie %s after it was swapped out",
+                tonie_id,
+            )
+            await self.async_request_refresh()
+        except Exception as err:
+            _LOGGER.warning("Auto-shuffle failed for Creative Tonie %s: %s", tonie_id, err)
 
     async def async_start_ici(self) -> None:
         """Start ICI MQTT connection for real-time TNG box data."""
@@ -588,6 +698,13 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     tonie = {"id": flat_id} if flat_id else None
                 tb["placement"] = {"tonie": tonie} if tonie else {}
                 tb["playback_state"] = self._parse_playback_state(payload)
+                # Real-time swap detection: shuffle a displaced Creative Tonie.
+                try:
+                    self._note_placement(
+                        tb_id, tonie.get("id") if tonie else None, data
+                    )
+                except Exception:
+                    _LOGGER.warning("Shuffle-on-swap push processing failed", exc_info=True)
             updated = True
             # MQTT gives us the identity of the placed Tonie immediately, but not
             # chapters/cover art — request a full coordinator refresh so REST/
@@ -646,11 +763,18 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         try:
-            return await self._fetch_all()
+            result = await self._fetch_all()
         except TonieCloudAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except Exception as err:
             raise UpdateFailed(f"Tonie Cloud error: {err}") from err
+        # Detect Tonie swaps from the freshly polled placement and, if enabled,
+        # shuffle any displaced Creative Tonie. Never let this break the poll.
+        try:
+            self._process_placements(result)
+        except Exception:
+            _LOGGER.warning("Shuffle-on-swap poll processing failed", exc_info=True)
+        return result
 
     async def _fetch_all(self) -> dict:
         result: dict = {

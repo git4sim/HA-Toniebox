@@ -41,7 +41,7 @@
       "description": "Kapitel eines Kreativ-Tonies sortieren.",
       "fields": {
         "entity_id": { "name": "Kreativ-Tonie", "description": "Die media_player-Entität des Ziel-Kreativ-Tonies." },
-        "sort_by": { "name": "Sortieren nach", "description": "Kapitel sortieren nach: Titel, Dateiname oder Datum." }
+        "sort_by": { "name": "Sortieren nach", "description": "Kapitel sortieren nach: Titel, Dateiname, Datum oder zufällig (in eine neue zufällige Reihenfolge mischen)." }
       }
     },
     "remove_chapter": {
@@ -198,8 +198,7 @@
       "language": {
         "name": "Boxsprache",
         "state": {"de": "Deutsch", "en": "Englisch", "en-us": "Englisch (US)", "fr": "Französisch"}
-      },
-      "sort_select": {"name": "Kapitel sortieren"}
+      }
     },
     "switch": {
       "skipping": {"name": "Klappsen zum Überspringen"},
@@ -208,6 +207,7 @@
       "accelerometer": {"name": "Kippen & Klopfen"},
       "private": {"name": "Nur in diesem Haushalt abspielen"},
       "live": {"name": "Live-Funktion"},
+      "shuffle_on_swap": {"name": "Beim Wechsel mischen"},
       "lock_household": {"name": "Im Haushalt sperren"}
     },
     "button": {
@@ -216,6 +216,7 @@
       "sort_by_title": {"name": "Nach Titel sortieren"},
       "sort_by_filename": {"name": "Nach Dateiname sortieren"},
       "sort_by_date": {"name": "Nach Datum sortieren"},
+      "sort_by_random": {"name": "Kapitel mischen"},
       "refresh": {"name": "Aktualisieren"},
       "factory_reset": {"name": "Auf Werkseinstellungen zurücksetzen"},
       "remove_tune": {"name": "Tune entfernen"}

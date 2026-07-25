@@ -25,6 +25,7 @@ _TONIE_BUTTONS = [
     _BtnDesc(key="sort_title",    name="Sort by Title",        translation_key="sort_by_title",    icon="mdi:sort-alphabetical-ascending", action="sort", args={"sort_by": "title"}),
     _BtnDesc(key="sort_filename", name="Sort by Filename",     translation_key="sort_by_filename", icon="mdi:sort-variant",               action="sort", args={"sort_by": "filename"}),
     _BtnDesc(key="sort_date",     name="Sort by Date",         translation_key="sort_by_date",     icon="mdi:sort-calendar-ascending",    action="sort", args={"sort_by": "date"}),
+    _BtnDesc(key="sort_random",   name="Shuffle Chapters",     translation_key="sort_by_random",   icon="mdi:shuffle",                    action="sort", args={"sort_by": "random"}),
     _BtnDesc(key="refresh",       name="Refresh",              translation_key="refresh",          icon="mdi:refresh",                    action="refresh"),
 ]
 
