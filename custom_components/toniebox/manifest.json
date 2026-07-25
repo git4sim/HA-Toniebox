@@ -2,14 +2,14 @@
   "domain": "toniebox",
   "name": "Toniebox",
   "codeowners": [
-    "@git4sim"
+    "@xylonm"
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/git4sim/HA-Toniebox",
+  "documentation": "https://github.com/xylonm/HA-Toniebox",
   "integration_type": "hub",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/git4sim/HA-Toniebox/issues",
+  "issue_tracker": "https://github.com/xylonm/HA-Toniebox/issues",
   "requirements": ["paho-mqtt>=2.0"],
   "version": "3.7.14"
 }
