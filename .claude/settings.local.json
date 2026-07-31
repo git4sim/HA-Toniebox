@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:api.tonie.cloud)"
+      "WebFetch(domain:api.tonie.cloud)",
+      "mcp__bf7c680d-5fdc-5ef4-b4a0-abadb619bf0a__subscribe_pr_activity"
     ]
   }
 }
