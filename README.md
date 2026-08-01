@@ -41,12 +41,16 @@
 
 - 🧸 Each **Creative Tonie** as its own device with media player, cover image and chapter list
 - 📻 Each **Toniebox** as its own device — shows the currently placed figure with name and cover
-- 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level and active box
-- 🔘 **Buttons** to sort (title / filename / date), clear and refresh
-- 🔴 **Binary Sensors** for transcoding, live mode, household lock, active figure
+- ▶️ **Full playback control on the Toniebox 2 (TNG)** — play/pause, next/previous chapter, jump to any chapter (browse), volume, and put to sleep — live via the Tonie Cloud's real-time channel
+- 🎚️ **Live "now playing"** — current chapter title, progress bar and play/pause state
+- ⏲️ **Sleep timer** — start a timer via the `toniebox.sleeptimer` action, with a `sleeptimer_active` binary sensor
+- 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level, active figure and figure ID
+- 🔘 **Buttons** to sort (title / filename / date), shuffle, clear and refresh
+- 🔀 **Shuffle** the chapter order on demand (`sort_chapters` with `sort_by: random`) or automatically **on swap** — a per-Creative-Tonie switch that reshuffles a Tonie once a different one replaces it on a box
+- 🔴 **Binary Sensors** for transcoding, live mode, household lock, active figure and running sleep timer
 - 🎛️ **Switches** for LED, chapter skipping, scrubbing, offline mode, household lock
 - 🌐 **Select entities** for language, LED level, tap direction, age mode
-- ⚙️ **14 Services** for automations: sort, clear, rename, apply tune, redeem voucher and more
+- ⚙️ **Services** for automations: sleeptimer, sort, clear, rename, apply tune, redeem voucher and more
 - 🌍 **Translations** for English, German, French, Spanish and Italian
 - 🔐 Keycloak OpenID Connect authentication — same credentials as the Toniebox app
 - 🛠️ Config Flow setup — **no YAML required**
@@ -121,8 +125,9 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 
 | Entity | Description |
 |---|---|
-| `media_player.<toniebox>` | Currently placed figure, cover image, playback position |
+| `media_player.<toniebox>` | Current chapter, cover, progress and play/pause; on TNG also play/pause, next/previous, chapter browsing, volume and sleep (turn off) |
 | `sensor.<toniebox>_current_tonie` | Currently placed figure (name) |
+| `sensor.<toniebox>_current_tonie_id` | Currently placed figure (raw Tonie ID — useful as an automation trigger) |
 | `sensor.<toniebox>_settings_applied` | Whether the latest settings have been transmitted |
 | `switch.<toniebox>_skip_chapters` | Chapter skipping via tap on/off |
 | `switch.<toniebox>_scrubbing` | Scrubbing by tilting on/off |
@@ -145,6 +150,7 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `binary_sensor.<toniebox>_online` | Toniebox recently active (reachability) |
 | `binary_sensor.<toniebox>_led_active` | LED status |
 | `binary_sensor.<toniebox>_charging` | Currently charging — unknown when offline (TNG only) |
+| `binary_sensor.<toniebox>_sleeptimer_active` | Whether a sleep timer is running; `sleep_until` attribute shows when the box will sleep (TNG only) |
 | `select.<toniebox>_led_level` | LED brightness |
 | `select.<toniebox>_language` | Language setting |
 | `select.<toniebox>_tap_direction` | Tap direction |
@@ -165,6 +171,7 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `sensor.<tonie>_transcoding` | Transcoding status |
 | `switch.<tonie>_private` | Hide Tonie from guest members |
 | `switch.<tonie>_live` | Enable live mode |
+| `switch.<tonie>_shuffle_on_swap` | **Local only** — when on, this Tonie's chapters are shuffled once it is replaced on a box by a *different* Tonie |
 | `binary_sensor.<tonie>_transcoding` | Transcoding in progress |
 | `binary_sensor.<tonie>_live` | Live status |
 | `binary_sensor.<tonie>_private` | Private status |
@@ -172,8 +179,14 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `button.<tonie>_sort_by_title` | Sort chapters alphabetically |
 | `button.<tonie>_sort_by_filename` | Sort chapters by filename |
 | `button.<tonie>_sort_by_date` | Sort chapters by date |
+| `button.<tonie>_shuffle_chapters` | Shuffle chapters into a random order |
 | `button.<tonie>_refresh` | Reload Tonie data |
-| `select.<tonie>_sort_chapters` | Select and apply sort order |
+
+> **Shuffle on swap** (`switch.<tonie>_shuffle_on_swap`) is a local convenience toggle with no counterpart in the Tonie Cloud:
+> - Only a *displacement* counts: the shuffle fires for the Tonie that gets **replaced** on a box by a different Tonie. Simply lifting a Tonie off (box goes empty) never shuffles it, so you can pick it up and put it back later to keep listening where you left off.
+> - Only **Creative Tonies** with **≥ 2 chapters** are shuffled.
+> - Each shuffle triggers a full re-transcode on the Tonie Cloud (typically 1–60 s) — expected, not an error.
+> - Real-time on the Toniebox 2 (TNG) via the cloud's push channel; on classic (non-TNG) boxes there is currently no placement data source to detect a swap from, so this only works on TNG.
 
 ---
 
@@ -185,8 +198,10 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 service: toniebox.sort_chapters
 data:
   entity_id: media_player.my_tonie
-  sort_by: title   # title | filename | date
+  sort_by: title   # title | filename | date | random
 ```
+
+> `random` shuffles the chapters into a new random order. Like every reorder, it triggers a full re-transcode of the Tonie on the Tonie Cloud (typically 1–60 s). Needs at least 2 chapters.
 
 ### `toniebox.clear_chapters` — Clear All Chapters
 
@@ -246,6 +261,22 @@ data:
   entity_id: media_player.my_toniebox
   name: "Kids Room"
 ```
+
+### `toniebox.sleeptimer` — Sleep Timer (Toniebox 2 / TNG only)
+
+Start a sleep timer: the box falls asleep on its own after the given number of
+minutes. Pass `0` to cancel a running timer.
+
+```yaml
+service: toniebox.sleeptimer
+data:
+  entity_id: media_player.my_toniebox
+  minutes: 30   # 0 = cancel the running timer
+```
+
+> Setting a timer has no immediate visible effect — the box keeps playing and
+> sleeps later. Watch `binary_sensor.<toniebox>_sleeptimer_active` (attribute
+> `sleep_until`) to confirm it is running.
 
 ### `toniebox.redeem_content_token` — Redeem Content Token
 
@@ -311,6 +342,35 @@ automation:
     - service: light.turn_on
       target:
         entity_id: light.kids_room
+```
+
+### Automatic sleep timer for a specific figure (TNG)
+
+Start a 60-minute sleep timer when a bedtime figure is placed, and cancel it
+when it is removed (uses the `current_tonie_id` sensor and `sleeptimer` action):
+
+```yaml
+automation:
+  alias: Toniebox - automatic sleep timer
+  triggers:
+    - trigger: state
+      entity_id: sensor.toniebox_current_tonie_id
+      to: "6B6A3428500304E0"          # bedtime figure -> start timer
+      id: figure_placed
+    - trigger: state
+      entity_id: sensor.toniebox_current_tonie_id
+      from: "6B6A3428500304E0"        # removed -> cancel timer
+      id: figure_removed
+  actions:
+    - choose:
+        - conditions: [{ condition: trigger, id: figure_placed }]
+          sequence:
+            - action: toniebox.sleeptimer
+              data: { entity_id: media_player.toniebox, minutes: 60 }
+        - conditions: [{ condition: trigger, id: figure_removed }]
+          sequence:
+            - action: toniebox.sleeptimer
+              data: { entity_id: media_player.toniebox, minutes: 0 }
 ```
 
 ### Volume 100% during the day, reduced to 50% at night
@@ -441,12 +501,16 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 
 - 🧸 Jede **Creative Tonie** als eigenes Gerät mit Media Player, Cover-Bild und Kapitelliste
 - 📻 Jede **Toniebox** als eigenes Gerät — zeigt die aktuell aufgelegte Figur mit Name und Cover
-- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand und aktive Box
-- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Leeren und Aktualisieren
-- 🔴 **Binary Sensors** für Transcoding, Live-Modus, Haushalt-Lock, aktive Figur
+- ▶️ **Volle Wiedergabesteuerung bei der Toniebox 2 (TNG)** — Play/Pause, Kapitel vor/zurück, zu beliebigem Kapitel springen (Browse), Lautstärke und Schlafenlegen — live über den Echtzeit-Kanal der Tonie Cloud
+- 🎚️ **Live „Now Playing"** — aktueller Kapiteltitel, Fortschrittsbalken und Play/Pause-Status
+- ⏲️ **Schlaftimer** — per Action `toniebox.sleeptimer` starten, mit Binary-Sensor `sleeptimer_active`
+- 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand, aktive Figur und Figur-ID
+- 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Mischen, Leeren und Aktualisieren
+- 🔀 **Mischen** der Kapitelreihenfolge auf Wunsch (`sort_chapters` mit `sort_by: random`) oder automatisch **beim Wechsel** — ein Schalter pro Creative Tonie, der einen Tonie neu mischt, sobald er auf einer Box durch einen anderen ersetzt wird
+- 🔴 **Binary Sensors** für Transcoding, Live-Modus, Haushalt-Lock, aktive Figur und laufenden Schlaftimer
 - 🎛️ **Switches** für LED, Kapitel-Überspringen, Scrubbing, Offline-Modus, Haushalt-Sperren
 - 🌐 **Select-Entities** für Sprache, LED-Level, Tap-Richtung, Alters-Modus
-- ⚙️ **14 Services** für Automationen: sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
+- ⚙️ **Services** für Automationen: Schlaftimer, sortieren, löschen, umbenennen, Tune aufspielen, Gutschein einlösen u.v.m.
 - 🌍 **Übersetzungen** für Deutsch, Englisch, Französisch, Spanisch und Italienisch
 - 🔐 Keycloak OpenID Connect Authentifizierung — selbe Zugangsdaten wie die Toniebox App
 - 🛠️ Config Flow Setup — **kein YAML erforderlich**
@@ -521,8 +585,9 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 
 | Entity | Beschreibung |
 |---|---|
-| `media_player.<toniebox>` | Aktuell aufgelegte Figur, Cover-Bild, Wiedergabe-Position |
+| `media_player.<toniebox>` | Aktuelles Kapitel, Cover, Fortschritt und Play/Pause; bei TNG zusätzlich Play/Pause, Kapitel vor/zurück, Kapitel-Browse, Lautstärke und Schlafenlegen |
 | `sensor.<toniebox>_aktuelle_figur` | Aktuell aufgelegte Figur (Name) |
+| `sensor.<toniebox>_aktuelle_figur_id` | Aktuell aufgelegte Figur (rohe Tonie-ID — praktisch als Automations-Trigger) |
 | `sensor.<toniebox>_einstellungen_uebertragen` | Ob die aktuellen Einstellungen übertragen wurden |
 | `switch.<toniebox>_kapitel_ueberspringen` | Kapitel-Überspringen per Tippen ein/aus |
 | `switch.<toniebox>_vorspulen_zurueckspulen` | Scrubbing durch Kippen ein/aus |
@@ -545,6 +610,7 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `binary_sensor.<toniebox>_online` | Toniebox zuletzt aktiv (Erreichbarkeit) |
 | `binary_sensor.<toniebox>_led_aktiv` | LED-Status |
 | `binary_sensor.<toniebox>_wird_geladen` | Wird gerade geladen — Unbekannt wenn offline (nur TNG) |
+| `binary_sensor.<toniebox>_schlaftimer_aktiv` | Ob ein Schlaftimer läuft; Attribut `sleep_until` zeigt die Einschlaf-Uhrzeit (nur TNG) |
 | `select.<toniebox>_led_level` | LED-Helligkeit |
 | `select.<toniebox>_sprache` | Spracheinstellung |
 | `select.<toniebox>_tap_richtung` | Tipp-Richtung |
@@ -565,6 +631,7 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `sensor.<tonie>_transkodierung` | Transkodierungs-Status |
 | `switch.<tonie>_privat` | Tonie für Gastmitglieder ausblenden |
 | `switch.<tonie>_live` | Live-Modus aktivieren |
+| `switch.<tonie>_shuffle_on_swap` | **Nur lokal** — wenn aktiv, werden die Kapitel dieses Tonies gemischt, sobald er auf einer Box durch einen *anderen* Tonie ersetzt wird |
 | `binary_sensor.<tonie>_wird_verarbeitet` | Transkodierung läuft |
 | `binary_sensor.<tonie>_live` | Live-Status |
 | `binary_sensor.<tonie>_privat` | Privat-Status |
@@ -572,8 +639,14 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `button.<tonie>_nach_titel_sortieren` | Kapitel alphabetisch sortieren |
 | `button.<tonie>_nach_dateiname_sortieren` | Kapitel nach Dateiname sortieren |
 | `button.<tonie>_nach_datum_sortieren` | Kapitel nach Datum sortieren |
+| `button.<tonie>_kapitel_mischen` | Kapitel in eine zufällige Reihenfolge mischen |
 | `button.<tonie>_aktualisieren` | Tonie-Daten neu laden |
-| `select.<tonie>_kapitel_sortieren` | Sortierart auswählen und anwenden |
+
+> **Beim Wechsel mischen** (`switch.<tonie>_shuffle_on_swap`) ist ein rein lokaler Schalter ohne Entsprechung in der Tonie Cloud:
+> - Nur die *Verdrängung* zählt: Gemischt wird der Tonie, der auf einer Box durch einen **anderen** Tonie ersetzt wird. Das bloße Abnehmen (Box wird leer) löst kein Mischen aus — so kannst du ihn abnehmen und später wieder auflegen, um weiterzuhören.
+> - Nur **Kreativ-Tonies** mit **≥ 2 Kapiteln** werden gemischt.
+> - Jedes Mischen löst ein vollständiges Neu-Transkodieren in der Tonie Cloud aus (typisch 1–60 s) — das ist normal, kein Fehler.
+> - In Echtzeit auf der Toniebox 2 (TNG) über den Push-Kanal der Cloud; auf klassischen (Nicht-TNG) Boxen gibt es aktuell keine Placement-Datenquelle, um einen Wechsel zu erkennen — funktioniert daher nur auf TNG.
 
 ---
 
@@ -585,8 +658,10 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 service: toniebox.sort_chapters
 data:
   entity_id: media_player.mein_tonie
-  sort_by: title   # title | filename | date
+  sort_by: title   # title | filename | date | random
 ```
+
+> `random` mischt die Kapitel in eine neue zufällige Reihenfolge. Wie jede Umsortierung löst das ein vollständiges Neu-Transkodieren des Tonies in der Tonie Cloud aus (typisch 1–60 s). Es werden mindestens 2 Kapitel benötigt.
 
 ### `toniebox.clear_chapters` — Alle Kapitel löschen
 
@@ -646,6 +721,22 @@ data:
   entity_id: media_player.meine_toniebox
   name: "Kinderzimmer"
 ```
+
+### `toniebox.sleeptimer` — Schlaftimer (nur Toniebox 2 / TNG)
+
+Startet einen Schlaftimer: Die Box schläft nach der angegebenen Minutenzahl von
+selbst ein. Mit `0` wird ein laufender Timer abgebrochen.
+
+```yaml
+service: toniebox.sleeptimer
+data:
+  entity_id: media_player.meine_toniebox
+  minutes: 30   # 0 = laufenden Timer abbrechen
+```
+
+> Das Setzen eines Timers hat keinen sofort sichtbaren Effekt — die Box spielt
+> weiter und schläft erst später ein. Zur Kontrolle
+> `binary_sensor.<toniebox>_schlaftimer_aktiv` (Attribut `sleep_until`) beobachten.
 
 ### `toniebox.redeem_content_token` — Content Token einlösen
 
@@ -711,6 +802,36 @@ automation:
     - service: light.turn_on
       target:
         entity_id: light.kinderzimmer
+```
+
+### Automatischer Schlaftimer für eine bestimmte Figur (TNG)
+
+Startet beim Auflegen einer Einschlaf-Figur einen 60-Minuten-Timer und bricht
+ihn beim Hochnehmen ab (nutzt den `aktuelle_figur_id`-Sensor und die
+`sleeptimer`-Action):
+
+```yaml
+automation:
+  alias: Toniebox - Automatischer Schlaftimer
+  triggers:
+    - trigger: state
+      entity_id: sensor.toniebox_aktuelle_figur_id
+      to: "6B6A3428500304E0"          # Einschlaf-Figur -> Timer starten
+      id: figur_aufgelegt
+    - trigger: state
+      entity_id: sensor.toniebox_aktuelle_figur_id
+      from: "6B6A3428500304E0"        # entfernt -> Timer abbrechen
+      id: figur_entfernt
+  actions:
+    - choose:
+        - conditions: [{ condition: trigger, id: figur_aufgelegt }]
+          sequence:
+            - action: toniebox.sleeptimer
+              data: { entity_id: media_player.toniebox, minutes: 60 }
+        - conditions: [{ condition: trigger, id: figur_entfernt }]
+          sequence:
+            - action: toniebox.sleeptimer
+              data: { entity_id: media_player.toniebox, minutes: 0 }
 ```
 
 ### Lautstärke tagsüber 100 %, nachts auf 50 % reduzieren

@@ -41,6 +41,7 @@ async def async_setup_entry(
             entities += [
                 ToniePrivateSwitch(coordinator, hh_id, t_id),
                 TonieLiveSwitch(coordinator, hh_id, t_id),
+                TonieShuffleOnSwapSwitch(coordinator, hh_id, t_id),
             ]
 
     # ── Content Tonie switches ────────────────────────────────────────────────
@@ -302,3 +303,30 @@ class TonieLiveSwitch(_TonieSwitch):
         self._optimistic_state = False
         self.async_write_ha_state()
         await self._patch({"live": False})
+
+
+class TonieShuffleOnSwapSwitch(_TonieSwitch):
+    """Auto-shuffle this Tonie's chapters when a *different* Tonie replaces it on a box.
+
+    Local-only: unlike the Private/Live switches this has no counterpart in the
+    Tonie Cloud. The state is persisted in the integration's local Store and the
+    swap detection/shuffle happens in the coordinator (see __init__.py).
+    """
+    _attr_icon = "mdi:shuffle-variant"
+
+    def __init__(self, coordinator, hh_id, t_id):
+        super().__init__(coordinator, hh_id, t_id)
+        self._attr_unique_id = f"ct_{t_id}_shuffle_on_swap"
+        self._attr_translation_key = "shuffle_on_swap"
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.is_shuffle_enabled(self._t_id)
+
+    async def async_turn_on(self, **kw):
+        await self.coordinator.async_set_shuffle_enabled(self._t_id, True)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kw):
+        await self.coordinator.async_set_shuffle_enabled(self._t_id, False)
+        self.async_write_ha_state()

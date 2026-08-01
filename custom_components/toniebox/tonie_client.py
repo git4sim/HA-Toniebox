@@ -12,6 +12,7 @@ API Base: https://api.prod.tcs.toys/v2
 from __future__ import annotations
 
 import logging
+import random
 import time
 from typing import Any
 
@@ -589,7 +590,11 @@ class TonieCloudClient:
     # ── Chapter helpers ───────────────────────────────────────────────────────
 
     async def sort_chapters(self, household_id: str, tonie_id: str, sort_by: str = "title") -> None:
-        """Sort chapters on a creative tonie."""
+        """Sort chapters on a creative tonie.
+
+        sort_by "random" shuffles the chapters into a new random order (this
+        triggers a full re-transcode of the tonie on the Tonie Cloud).
+        """
         tonie = await self.get_creative_tonie(household_id, tonie_id)
         chapters = tonie.get("chapters", [])
         if sort_by == "title":
@@ -598,6 +603,11 @@ class TonieCloudClient:
             chapters.sort(key=lambda c: c.get("file", c.get("title", "")).lower())
         elif sort_by == "date":
             chapters.sort(key=lambda c: c.get("id", ""))
+        elif sort_by == "random":
+            # Nothing to shuffle with fewer than 2 chapters.
+            if len(chapters) < 2:
+                return
+            random.shuffle(chapters)
         await self.patch_creative_tonie(household_id, tonie_id, {"chapters": chapters})
 
     async def clear_chapters(self, household_id: str, tonie_id: str) -> None:

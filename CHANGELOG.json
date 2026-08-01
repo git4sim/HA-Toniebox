@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.7.12",
+    "date": "2026-08-01",
+    "changes": {
+      "added": [
+        "Live-Wiedergabesteuerung auf der Toniebox 2 (TNG): Play/Pause, Kapitel vor/zurück, Lautstärke, Kapitel-Browse und Schlafenlegen — über den ICI-Echtzeitkanal, wie die offizielle App",
+        "sensor 'Aktuelle Figur ID' (current_tonie_id): rohe Tonie-ID der aktuell aufgelegten Figur, nützlich als Automations-Trigger",
+        "Action 'toniebox.sleeptimer' + binary_sensor 'Schlaftimer aktiv' (sleeptimer_active) für die Toniebox 2 (TNG)",
+        "sort_chapters: neue Sortierung 'random' — mischt die Kapitel eines Kreativ-Tonies in eine zufällige Reihenfolge (löst wie jede Umsortierung ein Neu-Transkodieren aus)",
+        "Button 'Kapitel mischen' pro Kreativ-Tonie zum direkten Zufallsmischen",
+        "Schalter 'Beim Wechsel mischen' pro Kreativ-Tonie: mischt die Kapitel automatisch, sobald der Tonie auf einer Box durch einen anderen Tonie verdrängt wird (nur Kreativ-Tonies mit mindestens 2 Kapiteln; reines Abnehmen löst nichts aus). Erkennung live via ICI-MQTT (TNG); auf klassischen (Nicht-TNG) Boxen aktuell nicht verfügbar, da keine Placement-Datenquelle existiert"
+      ],
+      "fixed": [
+        "playback/state-Payload live gegen einen echten Account verifiziert: 'tonie' ist ein flacher ID-String statt eines Objekts — die aktuell aufgelegte Figur wird dadurch zuverlässig erkannt (#24)",
+        "GraphQL-Feldnamen für Content Tonies/Discs korrigiert (title/lock/languageName statt name/locked/language; series.name als Produktlinie)",
+        "GraphQL-Platzierungsabfrage für Tonieboxen entfernt (das Feld existiert dort nicht) — Platzierung kommt jetzt ausschließlich von ICI"
+      ],
+      "changed": [
+        "Sortier-Auswahl (select 'Kapitel sortieren') entfernt — alle vier Sortiermodi (Titel/Dateiname/Datum/Zufall) gibt es jetzt als Buttons; die alte Select-Entität wird nach dem Update als 'nicht verfügbar' angezeigt und kann gelöscht werden"
+      ]
+    }
+  },
+  {
     "version": "3.7.11",
     "date": "2026-07-23",
     "changes": {

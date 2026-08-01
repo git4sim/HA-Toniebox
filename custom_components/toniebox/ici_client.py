@@ -19,10 +19,12 @@ from .const import (
     ICI_HOST,
     ICI_PORT,
     ICI_TOPIC_BATTERY,
+    ICI_TOPIC_BEDTIME,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_PLAYBACK,
     ICI_TOPIC_SETTINGS,
+    ICI_TOPIC_VOLUME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,8 +35,9 @@ _SUBSCRIBE_TOPICS = [
     ICI_TOPIC_ONLINE,
     ICI_TOPIC_HEADPHONES,
     ICI_TOPIC_SETTINGS,
-    # Observation only for now — see const.py note on ICI_TOPIC_PLAYBACK.
     ICI_TOPIC_PLAYBACK,
+    ICI_TOPIC_VOLUME,
+    ICI_TOPIC_BEDTIME,
 ]
 
 
@@ -144,6 +147,27 @@ class TonieboxIciClient:
                     await result
             except Exception:
                 _LOGGER.debug("ICI on_auth_failed callback raised", exc_info=True)
+
+    def publish_command(self, mac: str, command_type: str, payload: dict[str, Any]) -> bool:
+        """Publish an app-control command to a Toniebox (QoS 1).
+
+        Mirrors what the official Tonies app sends. Topic:
+            external/toniebox/{MAC}/app-control/{command_type}
+        The MAC must match the case used for subscriptions (upper-case, as the
+        broker delivers state topics on the upper-case MAC). Returns True if the
+        publish was handed to paho, False if we're not connected.
+        """
+        if not self._client or not self._connected:
+            _LOGGER.warning("ICI not connected — cannot send command %s", command_type)
+            return False
+        topic = f"external/toniebox/{mac}/app-control/{command_type}"
+        try:
+            info = self._client.publish(topic, json.dumps(payload), qos=1)
+            _LOGGER.debug("ICI PUBLISH %s: %s (rc=%s)", topic, payload, info.rc)
+            return info.rc == mqtt.MQTT_ERR_SUCCESS
+        except Exception:
+            _LOGGER.warning("Failed to publish ICI command to %s", topic, exc_info=True)
+            return False
 
     async def reconnect(self, new_token: str) -> None:
         """Reconnect with a new access token."""
