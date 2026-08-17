@@ -1,5 +1,14 @@
 [
   {
+    "version": "4.0.0",
+    "date": "2026-08-17",
+    "changes": {
+      "changed": [
+        "Neues Logo/Icon für die Integration (logo.png, icon.png und die @2x-Varianten)"
+      ]
+    }
+  },
+  {
     "version": "3.7.12",
     "date": "2026-08-01",
     "changes": {
