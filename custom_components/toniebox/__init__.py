@@ -9,10 +9,11 @@ from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -77,9 +78,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     coordinator = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if coordinator and coordinator.ici_client:
-        await coordinator.ici_client.disconnect()
-        coordinator.client.remove_token_listener(coordinator.ici_client.on_token_refreshed)
+    if coordinator:
+        await coordinator.async_stop_ici()
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
@@ -417,6 +417,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         self.client = client
         self.entry = entry
         self.ici_client: TonieboxIciClient | None = None
+        self._token_refresh_unsub: CALLBACK_TYPE | None = None
         self._mac_to_tb: dict[str, tuple[str, str]] = {}  # mac → (hh_id, tb_id)
         # ── Shuffle on swap ──
         # Persisted per-Creative-Tonie toggle (tonie_id → bool).
@@ -562,6 +563,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 on_auth_failed=self._on_ici_auth_failed,
             )
             self.client.add_token_listener(self.ici_client.on_token_refreshed)
+            # The ICI broker drops the session once the token it connected with
+            # expires; paho's auto-reconnect then retries with that expired token
+            # and is rejected. Refresh ahead of expiry so ICI always reconnects
+            # with a valid token instead of waiting for the next REST poll.
+            self.client.add_token_listener(self._schedule_token_refresh)
+            self._schedule_token_refresh()
 
             token = self.client.access_token
             if token:
@@ -569,6 +576,38 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.info("ICI MQTT started for %d TNG boxes", len(tng_boxes))
         except Exception:
             _LOGGER.warning("Failed to start ICI MQTT", exc_info=True)
+
+    @callback
+    def _schedule_token_refresh(self, _token: str | None = None, delay: float | None = None) -> None:
+        """(Re)arm the proactive token refresh timer."""
+        if self._token_refresh_unsub:
+            self._token_refresh_unsub()
+        if delay is None:
+            delay = max(10.0, self.client.seconds_until_token_refresh())
+        self._token_refresh_unsub = async_call_later(
+            self.hass, delay, self._async_proactive_token_refresh
+        )
+
+    async def _async_proactive_token_refresh(self, _now) -> None:
+        """Refresh the access token before it expires (keeps ICI authorised)."""
+        self._token_refresh_unsub = None
+        try:
+            # On success the token listeners fire, which re-arms this timer and
+            # reconnects ICI with the new token.
+            await self.client.async_refresh_token()
+        except Exception:
+            _LOGGER.debug("Proactive token refresh failed, retrying in 60s", exc_info=True)
+            self._schedule_token_refresh(delay=60)
+
+    async def async_stop_ici(self) -> None:
+        """Stop ICI and the proactive token refresh (config entry unload)."""
+        if self._token_refresh_unsub:
+            self._token_refresh_unsub()
+            self._token_refresh_unsub = None
+        self.client.remove_token_listener(self._schedule_token_refresh)
+        if self.ici_client:
+            await self.ici_client.disconnect()
+            self.client.remove_token_listener(self.ici_client.on_token_refreshed)
 
     async def _on_ici_auth_failed(self) -> None:
         """Called by the ICI client when the MQTT broker rejects the access token.
@@ -617,6 +656,29 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             "position": position,
             "updated_at": now,
         }
+
+    @staticmethod
+    def _enrich_placed_tonie(tonie: dict, tb: dict, hh_data: dict) -> dict:
+        """Fill name/image/type of an ICI-reported placed Tonie.
+
+        ICI playback/state only carries the Tonie ID and is re-sent on every
+        chapter change. Without this, each push would replace the enriched
+        placement from the last poll with a bare {"id": ...}, so the current
+        Tonie sensor drops to unknown until the follow-up refresh re-enriches it.
+        """
+        tonie_id = tonie.get("id")
+        prev = (tb.get("placement") or {}).get("tonie") or {}
+        known = (
+            hh_data.get("creativetonies", {}).get(tonie_id)
+            or hh_data.get("contenttonies", {}).get(tonie_id)
+            or hh_data.get("discs", {}).get(tonie_id)
+            or {}
+        )
+        base = dict(prev) if prev.get("id") == tonie_id else {}
+        merged = {**base, **{k: v for k, v in tonie.items() if v}}
+        merged["name"] = merged.get("name") or known.get("name")
+        merged["imageUrl"] = merged.get("imageUrl") or known.get("image_url")
+        return merged
 
     def _on_ici_message(self, mac: str, subtopic: str, payload: dict) -> None:
         """Handle an ICI MQTT message (called from the event loop)."""
@@ -714,6 +776,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 else:
                     flat_id = payload.get("tonieId") or payload.get("id")
                     tonie = {"id": flat_id} if flat_id else None
+                if tonie:
+                    tonie = self._enrich_placed_tonie(tonie, tb, data.get("households", {}).get(hh_id, {}))
                 tb["placement"] = {"tonie": tonie} if tonie else {}
                 tb["playback_state"] = self._parse_playback_state(payload)
                 # Real-time swap detection: shuffle a displaced Creative Tonie.

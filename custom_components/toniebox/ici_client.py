@@ -59,6 +59,9 @@ class TonieboxIciClient:
         self._user_uuid: str | None = None
         self._last_token: str | None = None
         self._auth_failed = False
+        # Auth rejections since the last successful CONNECT. The first one is
+        # usually just the expired token paho auto-reconnected with.
+        self._auth_failures = 0
 
     @property
     def connected(self) -> bool:
@@ -133,14 +136,15 @@ class TonieboxIciClient:
                 self._client = None
                 self._connected = False
 
-    async def _handle_auth_failure(self) -> None:
-        """Clean up after an MQTT auth failure and ask for a fresh token now.
+    async def _handle_auth_failure(self, refresh: bool) -> None:
+        """Clean up after an MQTT auth failure and optionally ask for a fresh token.
 
-        Without this, ICI would sit idle until the next REST poll cycle
-        (up to UPDATE_INTERVAL_MINUTES) happened to refresh the token.
+        Without the refresh, ICI would sit idle until the next scheduled token
+        refresh. It is skipped when a freshly refreshed token was rejected too,
+        so a broker that keeps rejecting us can't drive a tight refresh loop.
         """
         await self.disconnect()
-        if self._on_auth_failed:
+        if refresh and self._on_auth_failed:
             try:
                 result = self._on_auth_failed()
                 if result is not None:
@@ -200,23 +204,35 @@ class TonieboxIciClient:
         if rc_str == "Success":
             self._connected = True
             self._auth_failed = False
+            self._auth_failures = 0
             _LOGGER.info("ICI MQTT connected")
             self._subscribe_all()
         elif rc_str in self._AUTH_FAILURE_CODES:
             self._connected = False
             if not self._auth_failed:
                 self._auth_failed = True
-                _LOGGER.warning(
-                    "ICI MQTT authentication failed (%s). "
-                    "Reconnection suspended until the access token is refreshed.",
-                    rc_str,
-                )
+                self._auth_failures += 1
+                first = self._auth_failures == 1
+                if first:
+                    _LOGGER.debug(
+                        "ICI MQTT token rejected (%s), most likely expired. "
+                        "Refreshing the access token and reconnecting.",
+                        rc_str,
+                    )
+                else:
+                    _LOGGER.warning(
+                        "ICI MQTT authentication failed (%s) even after a token "
+                        "refresh. Reconnection suspended until the next token refresh.",
+                        rc_str,
+                    )
                 # Synchronously tell paho to stop retrying — calling disconnect()
                 # from within _on_connect is safe and prevents further attempts
                 # before the async cleanup below has a chance to run.
                 client.disconnect()
                 if self._loop:
-                    asyncio.run_coroutine_threadsafe(self._handle_auth_failure(), self._loop)
+                    asyncio.run_coroutine_threadsafe(
+                        self._handle_auth_failure(refresh=first), self._loop
+                    )
         else:
             self._connected = False
             _LOGGER.warning("ICI MQTT connection failed: %s", rc_str)
