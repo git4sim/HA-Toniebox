@@ -65,6 +65,10 @@ class TonieCloudClient:
     def _is_token_expired(self) -> bool:
         return time.monotonic() >= (self._token_expires_at - _TOKEN_REFRESH_BUFFER)
 
+    def seconds_until_token_refresh(self) -> float:
+        """Seconds until the access token enters its refresh window."""
+        return max(0.0, self._token_expires_at - _TOKEN_REFRESH_BUFFER - time.monotonic())
+
     @property
     def access_token(self) -> str | None:
         """Return the current access token."""
@@ -81,7 +85,8 @@ class TonieCloudClient:
 
     def remove_token_listener(self, callback) -> None:
         """Remove a token refresh callback."""
-        self._token_listeners = [cb for cb in self._token_listeners if cb is not callback]
+        # Equality, not identity: bound methods are a new object on every access.
+        self._token_listeners = [cb for cb in self._token_listeners if cb != callback]
 
     def _notify_token_listeners(self) -> None:
         """Notify listeners that the token has been refreshed."""

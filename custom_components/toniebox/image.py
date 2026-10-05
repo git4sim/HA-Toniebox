@@ -1,7 +1,10 @@
 """Image platform — Toniebox preview image based on bleColorId."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+
+import httpx
 
 from homeassistant.components.image import ImageEntity
 from homeassistant.config_entries import ConfigEntry
@@ -12,9 +15,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .device_info import toniebox_device_info
 
-# bleColorId → CDN preview thumbnail (from boxItemPreviews GraphQL query).
-# Note: these URLs are sourced from the Toniebox CDN and may change over time.
-# The image_url API fallback is used when no mapping is found.
+_LOGGER = logging.getLogger(__name__)
+
+# bleColorId → CDN preview thumbnail. Fallback only: Tonies moves these CDN
+# paths without notice (yellow already returns 403), so the thumbnails from
+# GET /box-item-previews are preferred whenever the API provides them.
 BLE_COLOR_THUMBNAILS: dict[int, str] = {
     0: "https://cdn.tonies.de/upload/tb2_preview_blue.png",
     1: "https://cdn.tonies.de/upload/tb2_preview_grey.png",
@@ -40,9 +45,19 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list = []
 
+    previews: dict[int, str] = {}
+    try:
+        for item in await coordinator.client.get_box_item_previews():
+            color_id = item.get("bleColorId")
+            thumbnail = item.get("thumbnail")
+            if isinstance(color_id, int) and thumbnail:
+                previews[color_id] = thumbnail
+    except Exception:
+        _LOGGER.debug("Could not fetch Toniebox item previews", exc_info=True)
+
     for hh_id, hh in coordinator.data.get("households", {}).items():
         for tb_id in hh.get("tonieboxes", {}):
-            entities.append(TonieboxImage(coordinator, hh_id, tb_id))
+            entities.append(TonieboxImage(coordinator, hh_id, tb_id, previews))
 
     async_add_entities(entities)
 
@@ -53,11 +68,13 @@ class TonieboxImage(CoordinatorEntity, ImageEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "toniebox_image"
 
-    def __init__(self, coordinator, hh_id, tb_id):
+    def __init__(self, coordinator, hh_id, tb_id, previews: dict[int, str]):
         CoordinatorEntity.__init__(self, coordinator)
         ImageEntity.__init__(self, coordinator.hass)
         self._hh_id = hh_id
         self._tb_id = tb_id
+        self._previews = previews
+        self._image_cache: tuple[tuple[str, ...], bytes] | None = None
         self._attr_unique_id = f"tb_{tb_id}_image"
         # Use current time so HA treats the image as fresh on first load
         self._attr_image_last_updated = datetime.now(timezone.utc)
@@ -74,13 +91,37 @@ class TonieboxImage(CoordinatorEntity, ImageEntity):
     def device_info(self):
         return toniebox_device_info(self.coordinator, self._hh_id, self._tb_id)
 
-    @property
-    def image_url(self) -> str | None:
+    def _candidate_urls(self) -> tuple[str, ...]:
+        """Image URLs in order of preference, without duplicates."""
         color_id = self._tb.get("ble_color_id")
-        if color_id is not None and color_id in BLE_COLOR_THUMBNAILS:
-            return BLE_COLOR_THUMBNAILS[color_id]
-        # Fallback to API imageUrl (classic boxes and unknown TNG colors)
-        return self._tb.get("image_url")
+        urls = (
+            self._previews.get(color_id),
+            BLE_COLOR_THUMBNAILS.get(color_id),
+            # API imageUrl (classic boxes and unknown TNG colors)
+            self._tb.get("image_url"),
+        )
+        return tuple(dict.fromkeys(u for u in urls if u))
+
+    async def async_image(self) -> bytes | None:
+        """Return the first candidate image that actually loads."""
+        candidates = self._candidate_urls()
+        if self._image_cache and self._image_cache[0] == candidates:
+            return self._image_cache[1]
+        for url in candidates:
+            try:
+                response = await self._client.get(url, timeout=10, follow_redirects=True)
+                response.raise_for_status()
+            except httpx.HTTPError as err:
+                _LOGGER.debug("Toniebox image %s not available: %s", url, err)
+                continue
+            content_type = response.headers.get("content-type", "").split(";")[0]
+            if not content_type.startswith("image/"):
+                _LOGGER.debug("Toniebox image %s is not an image (%s)", url, content_type)
+                continue
+            self._attr_content_type = content_type
+            self._image_cache = (candidates, response.content)
+            return response.content
+        return None
 
     @property
     def extra_state_attributes(self):

@@ -792,12 +792,14 @@ class TonieboxCurrentTonieSensor(_TbBase):
     def _placed_tonie(self) -> dict:
         placement = self._placement
         tonie = placement.get("tonie") or {}
-        if tonie.get("id"):
+        if tonie.get("id") and tonie.get("name"):
             return tonie
-        # Fallback: flat placement (tonieId / id) that __init__ may not have
-        # had a chance to normalise yet (e.g. first read before coordinator run).
+        # Fallback: bare ID (e.g. straight from an ICI push) or flat placement
+        # (tonieId / id) that __init__ may not have had a chance to normalise
+        # yet — resolve name/image from the known tonies.
         flat_id = (
-            placement.get("tonieId")
+            tonie.get("id")
+            or placement.get("tonieId")
             or placement.get("tonie_id")
             or placement.get("id")
         )
@@ -810,12 +812,13 @@ class TonieboxCurrentTonieSensor(_TbBase):
             )
             if known:
                 return {
+                    **tonie,
                     "id": flat_id,
                     "name": known.get("name"),
-                    "imageUrl": known.get("image_url"),
-                    "type": known.get("type"),
+                    "imageUrl": tonie.get("imageUrl") or known.get("image_url"),
+                    "type": tonie.get("type") or known.get("type"),
                 }
-            return {"id": flat_id}
+            return {**tonie, "id": flat_id}
         return {}
 
     @property
