@@ -744,12 +744,12 @@ class CreativeTonieTranscodingSensor(_TonieBase):
     @property
     def extra_state_attributes(self):
         return {
-            "seconds_remaining": self._tonie.get("secondsRemaining"),
-            "seconds_present": self._tonie.get("secondsPresent"),
-            "chapters_remaining": self._tonie.get("chaptersRemaining"),
-            "chapters_present": self._tonie.get("chaptersPresent"),
-            "last_update": self._tonie.get("lastUpdate"),
-            "transcoding_errors": self._tonie.get("transcodingErrors", []),
+            "seconds_remaining": self._tonie.get("seconds_remaining"),
+            "seconds_present": self._tonie.get("seconds_present"),
+            "chapters_remaining": self._tonie.get("chapters_remaining"),
+            "chapters_present": self._tonie.get("chapters_present"),
+            "last_update": self._tonie.get("last_update"),
+            "transcoding_errors": self._tonie.get("transcoding_errors", []),
         }
 
 
@@ -768,7 +768,7 @@ class CreativeTonieCapacitySensor(_TonieBase):
 
     @property
     def native_value(self):
-        secs = self._tonie.get("secondsRemaining")
+        secs = self._tonie.get("seconds_remaining")
         return round(secs / 60, 1) if secs is not None else None
 
 

@@ -996,6 +996,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                             "live": tonie.get("live", False),
                             "private": tonie.get("private", False),
                             "transcoding": tonie.get("transcoding", False),
+                            "transcoding_errors": tonie.get("transcodingErrors", []),
+                            "seconds_remaining": tonie.get("secondsRemaining"),
+                            "seconds_present": tonie.get("secondsPresent"),
+                            "chapters_remaining": tonie.get("chaptersRemaining"),
+                            "chapters_present": tonie.get("chaptersPresent"),
+                            "last_update": tonie.get("lastUpdate"),
                         }
 
             except Exception as e:
