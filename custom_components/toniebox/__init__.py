@@ -136,6 +136,12 @@ async def _find_toniebox_target(hass: HomeAssistant, entity_id: str):
     return None, None, None, None
 
 
+def _read_file(path: str) -> bytes:
+    """Read a file outside the event loop (used via async_add_executor_job)."""
+    with open(path, "rb") as f:
+        return f.read()
+
+
 def _slugify(text: str) -> str:
     import re
     text = text.lower().strip()
@@ -289,8 +295,7 @@ def _register_services(hass: HomeAssistant) -> None:
             title = os.path.splitext(filename)[0]
 
         try:
-            with open(file_path, "rb") as f:
-                file_data = f.read()
+            file_data = await hass.async_add_executor_job(_read_file, file_path)
             await client.upload_and_add_chapter(hh_id, t_id, file_data, filename, title)
             await _refresh_all(hass)
             _LOGGER.info("upload_audio: successfully uploaded '%s' to %s", filename, entity_id)
