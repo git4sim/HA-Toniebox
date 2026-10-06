@@ -786,17 +786,31 @@ class TonieCloudClient:
 
     # ── /file (audio upload) ──────────────────────────────────────────────────
 
-    async def upload_file(self, file_data: bytes, filename: str) -> dict:
-        """POST /file — upload audio file, returns file reference for chapter creation."""
-        await self._ensure_auth()
+    async def upload_file(self, file_data: bytes, filename: str) -> str:
+        """Upload an audio file to the Tonie Cloud and return its file ID.
+
+        The API does not accept the audio itself. POST /file returns a file ID
+        plus a presigned S3 POST (url + form fields); the audio goes to S3.
+        """
+        ticket = await self._post("/file", {})
+        file_id = ticket.get("fileId")
+        request = ticket.get("request") or {}
+        if not file_id or not request.get("url"):
+            raise TonieCloudAPIError(f"POST /file returned no upload ticket: {ticket}")
+
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "mp3"
         content_type = _AUDIO_CONTENT_TYPES.get(ext, "audio/mpeg")
         form = aiohttp.FormData()
+        # S3 requires the policy fields before the file and rejects a second
+        # auth mechanism, so no Tonie bearer header here.
+        for key, value in (request.get("fields") or {}).items():
+            form.add_field(key, value)
         form.add_field("file", file_data, filename=filename, content_type=content_type)
-        url = f"{_API_BASE}/file"
-        async with self._session.post(url, data=form, headers=self._auth_headers) as resp:
-            resp.raise_for_status()
-            return await resp.json()
+        async with self._session.post(request["url"], data=form) as resp:
+            if resp.status >= 300:
+                body = await resp.text()
+                raise TonieCloudAPIError(f"S3 upload failed ({resp.status}): {body[:300]}")
+        return file_id
 
     async def upload_and_add_chapter(
         self,
@@ -808,22 +822,23 @@ class TonieCloudClient:
     ) -> dict:
         """Upload an audio file and append it as a new chapter on a Creative Tonie.
 
-        This is a two-step operation:
-          1. POST /file  →  get file ID
-          2. PATCH /creativetonies/{id}  →  append chapter with that file ID
+        Three steps:
+          1. POST /file  ->  file ID and presigned S3 POST
+          2. POST to S3  ->  audio stored under that file ID
+          3. PATCH /creativetonies/{id}  ->  append chapter referencing the file
         """
-        # Step 1: upload
-        upload_result = await self.upload_file(file_data, filename)
-        file_id = upload_result.get("id") or upload_result.get("fileId")
-        if not file_id:
-            raise TonieCloudAPIError(
-                f"Upload succeeded but returned no file ID. Response: {upload_result}"
-            )
-
-        # Step 2: append chapter
+        file_id = await self.upload_file(file_data, filename)
         tonie = await self.get_creative_tonie(household_id, tonie_id)
         chapters = list(tonie.get("chapters", []))
-        chapters.append({"id": file_id, "title": title or filename})
+        chapters.append(
+            {
+                "id": file_id,
+                "file": file_id,
+                "title": title or filename,
+                "seconds": 0,
+                "transcoding": False,
+            }
+        )
         return await self.patch_creative_tonie(
             household_id, tonie_id, {"chapters": chapters}
         )
