@@ -43,7 +43,7 @@
 - 📻 Each **Toniebox** as its own device — shows the currently placed figure with name and cover
 - ▶️ **Full playback control on the Toniebox 2 (TNG)** — play/pause, next/previous chapter, jump to any chapter (browse), volume, and put to sleep — live via the Tonie Cloud's real-time channel
 - 🎚️ **Live "now playing"** — current chapter title, progress bar and play/pause state
-- ⏲️ **Sleep timer** — start a timer via the `toniebox.sleeptimer` action, with a `sleeptimer_active` binary sensor
+- ⏲️ **Sleep timer** — start a timer via the `toniebox.sleeptimer` action, with a `sleeptimer_active` binary sensor and the alarm that fires at the end of the timer
 - 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level, active figure and figure ID
 - 🔘 **Buttons** to sort (title / filename / date), shuffle, clear and refresh
 - 🔀 **Shuffle** the chapter order on demand (`sort_chapters` with `sort_by: random`) or automatically **on swap** — a per-Creative-Tonie switch that reshuffles a Tonie once a different one replaces it on a box
@@ -278,6 +278,26 @@ data:
 > sleeps later. Watch `binary_sensor.<toniebox>_sleeptimer_active` (attribute
 > `sleep_until`) to confirm it is running.
 
+The alarm that fires at the end of the timer is part of the same command and has to be
+requested explicitly — without it the box only falls asleep and never wakes up on its own:
+
+```yaml
+service: toniebox.sleeptimer
+data:
+  entity_id: media_player.my_toniebox
+  minutes: 480            # maximum 1092, see below
+  one_time_alarm: true    # a one-time alarm has to be armed again every night
+  alarm:
+    tone: "alarmLoop1.opus"
+    volume: 100
+    morning_light: true
+```
+
+> The duration is stored as a 16-bit value in seconds on the box, so **1092 minutes** is
+> the maximum; a larger value wraps silently (1093 min is applied as 44 s). The alarm
+> fires when the timer ends, not at a fixed clock time — a fixed wake-up time means
+> arming a timer that ends at that time.
+
 ### `toniebox.redeem_content_token` — Redeem Content Token
 
 ```yaml
@@ -503,7 +523,7 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 - 📻 Jede **Toniebox** als eigenes Gerät — zeigt die aktuell aufgelegte Figur mit Name und Cover
 - ▶️ **Volle Wiedergabesteuerung bei der Toniebox 2 (TNG)** — Play/Pause, Kapitel vor/zurück, zu beliebigem Kapitel springen (Browse), Lautstärke und Schlafenlegen — live über den Echtzeit-Kanal der Tonie Cloud
 - 🎚️ **Live „Now Playing"** — aktueller Kapiteltitel, Fortschrittsbalken und Play/Pause-Status
-- ⏲️ **Schlaftimer** — per Action `toniebox.sleeptimer` starten, mit Binary-Sensor `sleeptimer_active`
+- ⏲️ **Schlaftimer** — per Action `toniebox.sleeptimer` starten, mit Binary-Sensor `sleeptimer_active` und dem Wecker, der am Ende des Timers losgeht
 - 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand, aktive Figur und Figur-ID
 - 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Mischen, Leeren und Aktualisieren
 - 🔀 **Mischen** der Kapitelreihenfolge auf Wunsch (`sort_chapters` mit `sort_by: random`) oder automatisch **beim Wechsel** — ein Schalter pro Creative Tonie, der einen Tonie neu mischt, sobald er auf einer Box durch einen anderen ersetzt wird
@@ -737,6 +757,26 @@ data:
 > Das Setzen eines Timers hat keinen sofort sichtbaren Effekt — die Box spielt
 > weiter und schläft erst später ein. Zur Kontrolle
 > `binary_sensor.<toniebox>_schlaftimer_aktiv` (Attribut `sleep_until`) beobachten.
+
+Der Wecker, der am Ende des Timers losgeht, ist Teil desselben Befehls und muss
+explizit gesetzt werden — ohne ihn schläft die Box ein und wacht nie von selbst auf:
+
+```yaml
+service: toniebox.sleeptimer
+data:
+  entity_id: media_player.meine_toniebox
+  minutes: 480            # maximal 1092, siehe unten
+  one_time_alarm: true    # ein Einmal-Wecker muss jeden Tag neu gesetzt werden
+  alarm:
+    tone: "alarmLoop1.opus"
+    volume: 100
+    morning_light: true
+```
+
+> Die Dauer wird auf der Box als 16-Bit-Wert in Sekunden gespeichert, daher ist
+> **1092 Minuten** das Maximum; größere Werte laufen still um (1093 min werden als
+> 44 s angewandt). Der Wecker fällt am Ende des Timers, nicht zu einer festen Uhrzeit —
+> eine feste Aufstehzeit heißt, den Timer so zu setzen, dass er zu dieser Zeit endet.
 
 ### `toniebox.redeem_content_token` — Content Token einlösen
 

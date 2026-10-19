@@ -340,13 +340,29 @@ def _register_services(hass: HomeAssistant) -> None:
         if minutes <= 0:
             coordinator.ici_cancel_sleep_timer(mac)
         else:
-            coordinator.ici_set_sleep_timer(mac, minutes * 60)
+            alarm = call.data.get("alarm")
+            coordinator.ici_set_sleep_timer(
+                mac,
+                minutes * 60,
+                {
+                    "morningLight": bool(alarm.get("morning_light", True)),
+                    "tone": alarm.get("tone", "alarmLoop1.opus"),
+                    "volume": int(alarm.get("volume", 100)),
+                } if alarm else None,
+                bool(call.data.get("one_time_alarm", False)),
+            )
 
     hass.services.async_register(
         DOMAIN, "sleeptimer", handle_sleeptimer,
         schema=vol.Schema({
             vol.Required("entity_id"): cv.string,
-            vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+            vol.Required("minutes"): vol.All(vol.Coerce(int), vol.Range(min=0, max=1092)),
+            vol.Optional("one_time_alarm", default=False): bool,
+            vol.Optional("alarm"): vol.Schema({
+                vol.Optional("tone", default="alarmLoop1.opus"): str,
+                vol.Optional("volume", default=100): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                vol.Optional("morning_light", default=True): bool,
+            }),
         }),
     )
 
@@ -833,11 +849,28 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         self._ici_publish(mac, ICI_CMD_SLEEP_TIMER, {"state": "on", "duration": 300})
         return self._ici_publish(mac, ICI_CMD_SLEEP_NOW, {})
 
-    def ici_set_sleep_timer(self, mac: str, seconds: int) -> bool:
-        """Arm a sleep timer: the box falls asleep on its own after `seconds`."""
-        return self._ici_publish(
-            mac, ICI_CMD_SLEEP_TIMER, {"state": "on", "duration": int(seconds)}
-        )
+    def ici_set_sleep_timer(
+        self,
+        mac: str,
+        seconds: int,
+        alarm: dict | None = None,
+        one_time_alarm: bool = False,
+    ) -> bool:
+        """Arm a sleep timer: the box falls asleep on its own after `seconds`.
+
+        `seconds` is sent as a uint16 field, so it must stay below 65536
+        (max 1092 minutes); larger values wrap on the box.
+
+        `alarm` arms the alarm that fires when the timer ends, in the shape the
+        official app sends: {"morningLight": bool, "tone": str, "volume": int}.
+        Without it the box only ever gets a plain timer, never an alarm.
+        """
+        payload: dict = {"state": "on", "duration": int(seconds)}
+        if one_time_alarm:
+            payload["oneTimeAlarm"] = True
+        if alarm:
+            payload["alarm"] = alarm
+        return self._ici_publish(mac, ICI_CMD_SLEEP_TIMER, payload)
 
     def ici_cancel_sleep_timer(self, mac: str) -> bool:
         """Cancel a running sleep timer."""
