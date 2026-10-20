@@ -179,7 +179,7 @@ sleeptimer:
         be armed again the next day.
       required: false
       selector:
-        boolean
+        boolean:
     alarm:
       name: Alarm
       description: >
@@ -192,21 +192,21 @@ sleeptimer:
         morning_light: true
       selector:
         object:
-          options:
-            - name: tone
-              description: Tone played at the end of the timer.
+          fields:
+            tone:
+              label: Tone
               selector:
                 text:
-            - name: volume
-              description: Alarm volume (0-100).
+            volume:
+              label: Volume
               selector:
                 number:
                   min: 0
                   max: 100
-            - name: morning_light
-              description: Light up the ring at the end of the timer.
+            morning_light:
+              label: Morning light
               selector:
-                boolean
+                boolean:
 
 redeem_content_token:
   name: Redeem Content Token
