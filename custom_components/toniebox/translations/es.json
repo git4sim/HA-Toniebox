@@ -308,5 +308,12 @@
         "name": "Mezclar al cambiar"
       }
     }
+  },
+  "common": {
+    "no_chapters": "Sin capítulos",
+    "chapter_summary": "{count} capítulos · {minutes} min",
+    "no_tonie_placed": "Ningún Tonie colocado",
+    "chapter_number": "Capítulo {number}",
+    "chapters": "Capítulos"
   }
 }

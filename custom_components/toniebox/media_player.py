@@ -15,6 +15,10 @@ from homeassistant.components.media_player import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.translation import (
+    async_get_cached_translations,
+    async_get_translations,
+)
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, ICI_VOLUME_MAX_LEVEL, is_tng_box
@@ -22,11 +26,29 @@ from .device_info import creative_tonie_device_info, toniebox_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
+# English fallbacks for the "common" translation strings (see translations/*.json).
+_DEFAULT_STRINGS = {
+    "no_chapters": "No chapters",
+    "chapter_summary": "{count} chapters · {minutes} min",
+    "no_tonie_placed": "No Tonie placed",
+    "chapter_number": "Chapter {number}",
+    "chapters": "Chapters",
+}
+
+
+def _translate(hass: HomeAssistant, key: str, **placeholders: Any) -> str:
+    """Return a runtime string in the user's language (English if missing)."""
+    cached = async_get_cached_translations(hass, hass.config.language, "common", DOMAIN)
+    template = cached.get(f"component.{DOMAIN}.common.{key}") or _DEFAULT_STRINGS[key]
+    return template.format(**placeholders)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]
+    # Load the "common" strings so entities can translate runtime text.
+    await async_get_translations(hass, hass.config.language, "common", {DOMAIN})
     entities: list = []
 
     for hh_id, hh in coordinator.data.get("households", {}).items():
@@ -79,9 +101,11 @@ class CreativeToniePlayer(CoordinatorEntity, MediaPlayerEntity):
     def media_title(self) -> str | None:
         chapters = self._tonie.get("chapters", [])
         if not chapters:
-            return "Keine Kapitel"
+            return _translate(self.hass, "no_chapters")
         mins = round(sum(c.get("seconds", 0) for c in chapters) / 60, 1)
-        return f"{len(chapters)} Kapitel · {mins} Min"
+        return _translate(
+            self.hass, "chapter_summary", count=len(chapters), minutes=mins
+        )
 
     @property
     def media_image_url(self) -> str | None:
@@ -260,14 +284,14 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         """Main line: the current chapter (what's playing right now)."""
         tonie = self._placed_tonie()
         if not tonie:
-            return "Kein Tonie aufgelegt"
+            return _translate(self.hass, "no_tonie_placed")
         chapter_title = self._chapter_title()
         if chapter_title:
             return chapter_title
         chapter = self._playback_state.get("chapter")
         if isinstance(chapter, int) and chapter >= 0:
             # chapter is 0-based; show a human-friendly 1-based number.
-            return f"Kapitel {chapter + 1}"
+            return _translate(self.hass, "chapter_number", number=chapter + 1)
         # No live chapter info yet — fall back to the tonie's own name.
         tonie_id = tonie.get("id", "")
         return tonie.get("name") or self._resolve_tonie_name(tonie_id) or tonie_id
@@ -398,7 +422,7 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
         current = self._playback_state.get("chapter")   # 0-based box index
         children = []
         for idx, ch in enumerate(self._chapters()):     # idx = 0-based box index
-            title = ch.get("title") or ch.get("tuneTitle") or f"Kapitel {idx + 1}"
+            title = ch.get("title") or ch.get("tuneTitle") or _translate(self.hass, "chapter_number", number=idx + 1)
             # Mark the chapter that is playing right now.
             label = f"▶ {title}" if idx == current else title
             children.append(
@@ -413,7 +437,7 @@ class TonieboxPlayer(CoordinatorEntity, MediaPlayerEntity):
             )
         tonie = self._placed_tonie()
         return BrowseMedia(
-            title=tonie.get("name") or "Kapitel",
+            title=tonie.get("name") or _translate(self.hass, "chapters"),
             media_class=MediaClass.DIRECTORY,
             media_content_type="chapters",
             media_content_id="chapters",

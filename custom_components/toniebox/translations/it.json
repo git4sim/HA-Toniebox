@@ -308,5 +308,12 @@
         "name": "Mescola al cambio"
       }
     }
+  },
+  "common": {
+    "no_chapters": "Nessun capitolo",
+    "chapter_summary": "{count} capitoli · {minutes} min",
+    "no_tonie_placed": "Nessun Tonie posizionato",
+    "chapter_number": "Capitolo {number}",
+    "chapters": "Capitoli"
   }
 }

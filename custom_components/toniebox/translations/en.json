@@ -234,5 +234,12 @@
       "headphones_connected": {"name": "Connected"},
       "sleeptimer_active": {"name": "Sleep Timer Active"}
     }
+  },
+  "common": {
+    "no_chapters": "No chapters",
+    "chapter_summary": "{count} chapters · {minutes} min",
+    "no_tonie_placed": "No Tonie placed",
+    "chapter_number": "Chapter {number}",
+    "chapters": "Chapters"
   }
 }
