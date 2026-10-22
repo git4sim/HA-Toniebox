@@ -158,6 +158,7 @@
       "bedtime_color": {"name": "Schlafenszeit-Farbe"},
       "chapter_count": {"name": "Kapitel"},
       "total_duration": {"name": "Gesamtdauer"},
+      "next_alarm": {"name": "Nächster Wecker"},
       "settings_applied": {"name": "Einstellungen übertragen"},
       "setup_wifi": {"name": "Setup-WLAN (SSID)"},
       "transcoding": {"name": "Transkodierung"},

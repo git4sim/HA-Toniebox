@@ -158,6 +158,7 @@
       "bedtime_color": {"name": "Bedtime Color"},
       "chapter_count": {"name": "Chapters"},
       "total_duration": {"name": "Total Duration"},
+      "next_alarm": {"name": "Next Alarm"},
       "settings_applied": {"name": "Settings Applied"},
       "setup_wifi": {"name": "Setup Wi-Fi (SSID)"},
       "transcoding": {"name": "Transcoding"},

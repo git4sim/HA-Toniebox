@@ -209,7 +209,7 @@ class TonieboxSleepTimerActiveSensor(_TbBin):
         sleep_until = None
         if timer.get("state") == "on" and isinstance(until, (int, float)):
             sleep_until = datetime.fromtimestamp(until, tz=timezone.utc).isoformat()
-        return {"sleep_until": sleep_until, "duration_seconds": timer.get("duration")}
+        return {"sleep_until": sleep_until, "duration_seconds": timer.get("duration"), "alarm": timer.get("alarm")}
 
 
 class HeadphonesConnectedSensor(_TbBin):

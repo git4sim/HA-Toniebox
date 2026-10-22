@@ -44,6 +44,7 @@
 - ▶️ **Full playback control on the Toniebox 2 (TNG)** — play/pause, next/previous chapter, jump to any chapter (browse), volume, and put to sleep — live via the Tonie Cloud's real-time channel
 - 🎚️ **Live "now playing"** — current chapter title, progress bar and play/pause state
 - ⏲️ **Sleep timer** — start a timer via the `toniebox.sleeptimer` action, with a `sleeptimer_active` binary sensor and the alarm that fires at the end of the timer
+- ⏰ **Weekday alarms** — manage the recurring bedtime schedules of the tonies app, with a `next_alarm` sensor and an on/off switch per schedule
 - 📊 **Sensors** for chapter count, total duration, firmware version, online status, battery level, active figure and figure ID
 - 🔘 **Buttons** to sort (title / filename / date), shuffle, clear and refresh
 - 🔀 **Shuffle** the chapter order on demand (`sort_chapters` with `sort_by: random`) or automatically **on swap** — a per-Creative-Tonie switch that reshuffles a Tonie once a different one replaces it on a box
@@ -150,7 +151,9 @@ Each device appears under **Settings → Devices & Services → Toniebox** with 
 | `binary_sensor.<toniebox>_online` | Toniebox recently active (reachability) |
 | `binary_sensor.<toniebox>_led_active` | LED status |
 | `binary_sensor.<toniebox>_charging` | Currently charging — unknown when offline (TNG only) |
-| `binary_sensor.<toniebox>_sleeptimer_active` | Whether a sleep timer is running; `sleep_until` attribute shows when the box will sleep (TNG only) |
+| `binary_sensor.<toniebox>_sleeptimer_active` | Whether a sleep timer is running; `sleep_until` attribute shows when the box will sleep, `alarm` the armed alarm (TNG only) |
+| `sensor.<toniebox>_next_alarm` | Next wake-up of the enabled bedtime schedules; `schedule` attribute is the schedule it belongs to, `schedules` lists them all (TNG only) |
+| `switch.<toniebox>_<schedule>` | One per bedtime schedule, turns it on/off (TNG only) |
 | `select.<toniebox>_led_level` | LED brightness |
 | `select.<toniebox>_language` | Language setting |
 | `select.<toniebox>_tap_direction` | Tap direction |
@@ -298,6 +301,29 @@ data:
 > fires when the timer ends, not at a fixed clock time — a fixed wake-up time means
 > arming a timer that ends at that time.
 
+### `toniebox.set_bedtime_schedule` / `toniebox.delete_bedtime_schedule` — Bedtime Schedules (TNG only)
+
+The recurring schedules from the tonies app. Without `schedule_id` a new one is created,
+with it only the given fields are changed:
+
+```yaml
+service: toniebox.set_bedtime_schedule
+data:
+  entity_id: media_player.my_toniebox
+  name: School days
+  sleep_time: "19:00"
+  wakeup_time: "06:40"
+  days: [monday, tuesday, wednesday, thursday, friday]
+  enabled: true
+  alarm_enabled: true
+  alarm_tone: "alarmLoop1.opus"
+  alarm_volume: 50
+  alarm_morning_light: false
+```
+
+> A schedule alone does **not** make the box ring — the alarm still has to be armed
+> each evening with `toniebox.sleeptimer` (see the weekday alarm example below).
+
 ### `toniebox.redeem_content_token` — Redeem Content Token
 
 ```yaml
@@ -391,6 +417,38 @@ automation:
           sequence:
             - action: toniebox.sleeptimer
               data: { entity_id: media_player.toniebox, minutes: 0 }
+```
+
+### Weekday alarm from a bedtime schedule (TNG)
+
+The box only accepts the alarm while it is online, so arm it each evening when it
+comes online, using the next wake-up from the `next_alarm` sensor:
+
+```yaml
+automation:
+  alias: Toniebox - arm alarm
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.toniebox_online
+      from: "off"
+      to: "on"
+  conditions:
+    - "{{ states('sensor.toniebox_next_alarm') not in ['unknown', 'unavailable'] }}"
+  actions:
+    - delay: "00:00:30"   # the box ignores commands right after coming online
+    - variables:
+        s: "{{ state_attr('sensor.toniebox_next_alarm', 'schedule') }}"
+    - action: toniebox.sleeptimer
+      data:
+        entity_id: media_player.toniebox
+        minutes: >
+          {{ ((as_datetime(states('sensor.toniebox_next_alarm')) - now())
+              .total_seconds() / 60) | round(0, 'ceil') | int }}
+        one_time_alarm: true
+        alarm:
+          tone: "{{ s.alarmTone }}"
+          volume: "{{ s.alarmVolume }}"
+          morning_light: "{{ s.alarmMorningLight }}"
 ```
 
 ### Volume 100% during the day, reduced to 50% at night
@@ -524,6 +582,7 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 - ▶️ **Volle Wiedergabesteuerung bei der Toniebox 2 (TNG)** — Play/Pause, Kapitel vor/zurück, zu beliebigem Kapitel springen (Browse), Lautstärke und Schlafenlegen — live über den Echtzeit-Kanal der Tonie Cloud
 - 🎚️ **Live „Now Playing"** — aktueller Kapiteltitel, Fortschrittsbalken und Play/Pause-Status
 - ⏲️ **Schlaftimer** — per Action `toniebox.sleeptimer` starten, mit Binary-Sensor `sleeptimer_active` und dem Wecker, der am Ende des Timers losgeht
+- ⏰ **Wecker an Wochentagen** — die wiederkehrenden Schlafenszeiten der tonies-App verwalten, mit Sensor `nachster_wecker` und einem Schalter pro Zeitplan
 - 📊 **Sensoren** für Kapitelanzahl, Gesamtdauer, Firmware-Version, Online-Status, Batteriestand, aktive Figur und Figur-ID
 - 🔘 **Buttons** zum Sortieren (Titel / Dateiname / Datum), Mischen, Leeren und Aktualisieren
 - 🔀 **Mischen** der Kapitelreihenfolge auf Wunsch (`sort_chapters` mit `sort_by: random`) oder automatisch **beim Wechsel** — ein Schalter pro Creative Tonie, der einen Tonie neu mischt, sobald er auf einer Box durch einen anderen ersetzt wird
@@ -630,7 +689,9 @@ Jedes Gerät erscheint unter **Einstellungen → Geräte & Dienste → Toniebox*
 | `binary_sensor.<toniebox>_online` | Toniebox zuletzt aktiv (Erreichbarkeit) |
 | `binary_sensor.<toniebox>_led_aktiv` | LED-Status |
 | `binary_sensor.<toniebox>_wird_geladen` | Wird gerade geladen — Unbekannt wenn offline (nur TNG) |
-| `binary_sensor.<toniebox>_schlaftimer_aktiv` | Ob ein Schlaftimer läuft; Attribut `sleep_until` zeigt die Einschlaf-Uhrzeit (nur TNG) |
+| `binary_sensor.<toniebox>_schlaftimer_aktiv` | Ob ein Schlaftimer läuft; Attribut `sleep_until` zeigt die Einschlaf-Uhrzeit, `alarm` den gestellten Wecker (nur TNG) |
+| `sensor.<toniebox>_nachster_wecker` | Nächste Weckzeit der aktiven Schlafenszeiten; Attribut `schedule` ist der zugehörige Zeitplan, `schedules` listet alle (nur TNG) |
+| `switch.<toniebox>_<zeitplan>` | Einer pro Schlafenszeit, schaltet sie ein/aus (nur TNG) |
 | `select.<toniebox>_led_level` | LED-Helligkeit |
 | `select.<toniebox>_sprache` | Spracheinstellung |
 | `select.<toniebox>_tap_richtung` | Tipp-Richtung |
@@ -778,6 +839,29 @@ data:
 > 44 s angewandt). Der Wecker fällt am Ende des Timers, nicht zu einer festen Uhrzeit —
 > eine feste Aufstehzeit heißt, den Timer so zu setzen, dass er zu dieser Zeit endet.
 
+### `toniebox.set_bedtime_schedule` / `toniebox.delete_bedtime_schedule` — Schlafenszeiten (nur TNG)
+
+Die wiederkehrenden Zeitpläne aus der tonies-App. Ohne `schedule_id` wird ein neuer
+angelegt, mit `schedule_id` werden nur die angegebenen Felder geändert:
+
+```yaml
+service: toniebox.set_bedtime_schedule
+data:
+  entity_id: media_player.meine_toniebox
+  name: Schultage
+  sleep_time: "19:00"
+  wakeup_time: "06:40"
+  days: [monday, tuesday, wednesday, thursday, friday]
+  enabled: true
+  alarm_enabled: true
+  alarm_tone: "alarmLoop1.opus"
+  alarm_volume: 50
+  alarm_morning_light: false
+```
+
+> Ein Zeitplan allein lässt die Box **nicht** klingeln — der Wecker muss trotzdem jeden
+> Abend mit `toniebox.sleeptimer` gestellt werden (siehe Wecker-Beispiel unten).
+
 ### `toniebox.redeem_content_token` — Content Token einlösen
 
 ```yaml
@@ -872,6 +956,38 @@ automation:
           sequence:
             - action: toniebox.sleeptimer
               data: { entity_id: media_player.toniebox, minutes: 0 }
+```
+
+### Wecker an Wochentagen aus einer Schlafenszeit (TNG)
+
+Die Box nimmt den Wecker nur an, solange sie online ist — also jeden Abend beim
+Online-Gehen stellen, mit der nächsten Weckzeit aus dem Sensor `nachster_wecker`:
+
+```yaml
+automation:
+  alias: Toniebox - Wecker stellen
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.toniebox_online
+      from: "off"
+      to: "on"
+  conditions:
+    - "{{ states('sensor.toniebox_nachster_wecker') not in ['unknown', 'unavailable'] }}"
+  actions:
+    - delay: "00:00:30"   # direkt nach dem Online-Gehen ignoriert die Box Befehle
+    - variables:
+        s: "{{ state_attr('sensor.toniebox_nachster_wecker', 'schedule') }}"
+    - action: toniebox.sleeptimer
+      data:
+        entity_id: media_player.toniebox
+        minutes: >
+          {{ ((as_datetime(states('sensor.toniebox_nachster_wecker')) - now())
+              .total_seconds() / 60) | round(0, 'ceil') | int }}
+        one_time_alarm: true
+        alarm:
+          tone: "{{ s.alarmTone }}"
+          volume: "{{ s.alarmVolume }}"
+          morning_light: "{{ s.alarmMorningLight }}"
 ```
 
 ### Lautstärke tagsüber 100 %, nachts auf 50 % reduzieren

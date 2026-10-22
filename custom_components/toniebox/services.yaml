@@ -208,6 +208,95 @@ sleeptimer:
               selector:
                 boolean:
 
+set_bedtime_schedule:
+  name: Set Bedtime Schedule
+  description: >
+    Create a recurring bedtime schedule on a Toniebox 2, or update one when
+    schedule_id is given. Note: the box does not ring from a schedule alone,
+    the alarm still has to be armed with toniebox.sleeptimer.
+  fields:
+    entity_id:
+      name: Toniebox
+      required: true
+      selector:
+        entity:
+          integration: toniebox
+          domain: media_player
+    schedule_id:
+      name: Schedule ID
+      selector:
+        text:
+    name:
+      name: Name
+      selector:
+        text:
+    sleep_time:
+      name: Sleep Time
+      selector:
+        time:
+    wakeup_time:
+      name: Wake-up Time
+      selector:
+        time:
+    days:
+      name: Days
+      selector:
+        select:
+          multiple: true
+          options:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+    enabled:
+      name: Enabled
+      selector:
+        boolean:
+    alarm_enabled:
+      name: Alarm Enabled
+      selector:
+        boolean:
+    alarm_morning_light:
+      name: Morning Light
+      selector:
+        boolean:
+    alarm_tone:
+      name: Alarm Tone
+      selector:
+        select:
+          options:
+            - alarmLoop1.opus
+            - alarmLoop2.opus
+            - alarmLoop3.opus
+            - alarmLoop4.opus
+            - alarmLoop5.opus
+    alarm_volume:
+      name: Alarm Volume
+      selector:
+        number:
+          min: 0
+          max: 100
+
+delete_bedtime_schedule:
+  name: Delete Bedtime Schedule
+  description: Delete a bedtime schedule from a Toniebox 2.
+  fields:
+    entity_id:
+      name: Toniebox
+      required: true
+      selector:
+        entity:
+          integration: toniebox
+          domain: media_player
+    schedule_id:
+      name: Schedule ID
+      required: true
+      selector:
+        text:
+
 redeem_content_token:
   name: Redeem Content Token
   description: Redeem a free content token onto a Creative Tonie.
