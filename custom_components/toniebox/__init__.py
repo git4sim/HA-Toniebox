@@ -1060,9 +1060,10 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 "Removing device %s (%s): no longer part of the Tonie household",
                 device.name_by_user or device.name, ", ".join(idents),
             )
-            dev_reg.async_update_device(
-                device.id, remove_config_entry_id=self.entry.entry_id
-            )
+            # A device belongs to a single config entry, so remove the device
+            # itself. Detaching it via remove_config_entry_id is deprecated
+            # and stops working in Home Assistant 2027.8.
+            dev_reg.async_remove_device(device.id)
 
     async def _fetch_bedtime_schedules(
         self, hh_id: str, tb_id: str, box: dict, prev_tb: dict
