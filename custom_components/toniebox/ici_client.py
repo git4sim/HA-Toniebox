@@ -80,6 +80,9 @@ class TonieboxIciClient:
         self._last_token = access_token
         self._boxes = [b for b in boxes if is_tng_box(b)]
 
+        if self._client is not None:
+            await self.disconnect()
+
         if not self._boxes:
             _LOGGER.debug("No TNG Tonieboxes found, skipping ICI connection")
             return
@@ -116,26 +119,28 @@ class TonieboxIciClient:
             client.on_message = self._on_message
             client.on_disconnect = self._on_disconnect
             client.connect_async(ICI_HOST, ICI_PORT, keepalive=60)
-            self._client = client
+            return client
 
         try:
-            await self._loop.run_in_executor(None, _setup_and_connect)
-            self._client.loop_start()
+            client = await self._loop.run_in_executor(None, _setup_and_connect)
+            # Use the local reference: paho callbacks or disconnect() may reset
+            # self._client to None at any time.
+            self._client = client
+            client.loop_start()
             _LOGGER.debug("ICI MQTT connection initiated for %d TNG boxes", len(self._boxes))
         except Exception:
             _LOGGER.warning("Failed to connect to ICI broker", exc_info=True)
 
     async def disconnect(self) -> None:
         """Disconnect from ICI broker."""
-        if self._client:
+        client, self._client = self._client, None
+        self._connected = False
+        if client:
             try:
-                self._client.loop_stop()
-                self._client.disconnect()
+                client.disconnect()
+                client.loop_stop()
             except Exception:
                 _LOGGER.debug("Error during ICI disconnect", exc_info=True)
-            finally:
-                self._client = None
-                self._connected = False
 
     async def _handle_auth_failure(self, refresh: bool) -> None:
         """Clean up after an MQTT auth failure and optionally ask for a fresh token.
@@ -207,7 +212,7 @@ class TonieboxIciClient:
             self._auth_failed = False
             self._auth_failures = 0
             _LOGGER.info("ICI MQTT connected")
-            self._subscribe_all()
+            self._subscribe_all(client)
         elif rc_str in self._AUTH_FAILURE_CODES:
             self._connected = False
             if not self._auth_failed:
@@ -274,9 +279,9 @@ class TonieboxIciClient:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    def _subscribe_all(self) -> None:
+    def _subscribe_all(self, client: mqtt.Client | None) -> None:
         """Subscribe to all relevant topics for all TNG boxes."""
-        if not self._client:
+        if client is None:
             return
         for box in self._boxes:
             mac = box.get("macAddress") or box.get("mac_address", "")
@@ -285,5 +290,5 @@ class TonieboxIciClient:
             name = box.get("name", "?")
             for subtopic in _SUBSCRIBE_TOPICS:
                 full_topic = f"external/toniebox/{mac}/{subtopic}"
-                self._client.subscribe(full_topic, qos=1)
+                client.subscribe(full_topic, qos=1)
                 _LOGGER.debug("ICI subscribed: %s (%s)", full_topic, name)
