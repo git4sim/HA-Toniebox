@@ -1,5 +1,19 @@
 [
   {
+    "version": "4.1.0",
+    "date": "2026-11-02",
+    "changes": {
+      "changed": [
+        "Action 'toniebox.upload_audio' ist jetzt nur noch für Administratoren aufrufbar (Automationen/Skripte weiterhin möglich), da sie beliebige Dateien vom Host liest und in die Tonie Cloud hochlädt",
+        "upload_audio: fehlende Datei wirft jetzt einen ServiceValidationError statt nur ins Log zu schreiben"
+      ],
+      "fixed": [
+        "upload_audio: Dateiprüfung (isfile) läuft nicht mehr blockierend im Event-Loop, sondern zusammen mit dem Lesen im Executor",
+        "ICI-MQTT: disconnect()/loop_stop() blockierte den Event-Loop (Join auf den paho-Netzwerk-Thread) bei jedem Token-Refresh, Verbindungsabbruch und Entladen — läuft jetzt im Executor"
+      ]
+    }
+  },
+  {
     "version": "4.0.0",
     "date": "2026-08-17",
     "changes": {
