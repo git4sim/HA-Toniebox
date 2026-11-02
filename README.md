@@ -251,6 +251,8 @@ data:
 
 Supported formats: `mp3`, `ogg`, `wav`, `flac`, `m4a`, `aac`, `opus`.
 
+This action can only be called by Home Assistant administrators (automations and scripts are allowed), because it reads a file from the host.
+
 ### `toniebox.rename_tonie` — Rename Tonie
 
 ```yaml
@@ -792,6 +794,8 @@ data:
 ```
 
 Unterstützte Formate: `mp3`, `ogg`, `wav`, `flac`, `m4a`, `aac`, `opus`.
+
+Diese Action dürfen nur Home-Assistant-Administratoren aufrufen (Automationen und Skripte funktionieren weiterhin), da sie eine Datei vom Host liest.
 
 ### `toniebox.rename_tonie` — Tonie umbenennen
 

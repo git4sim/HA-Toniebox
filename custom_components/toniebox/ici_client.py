@@ -42,6 +42,12 @@ _SUBSCRIBE_TOPICS = [
 ]
 
 
+def _stop_client(client: mqtt.Client) -> None:
+    """Disconnect a paho client and stop its network thread (blocking)."""
+    client.disconnect()
+    client.loop_stop()
+
+
 class TonieboxIciClient:
     """MQTT v5 client for ICI real-time push data."""
 
@@ -136,9 +142,11 @@ class TonieboxIciClient:
         client, self._client = self._client, None
         self._connected = False
         if client:
+            # loop_stop() joins paho's network thread and blocks until it
+            # exits, so run the teardown in the executor like connect does.
+            loop = self._loop or asyncio.get_running_loop()
             try:
-                client.disconnect()
-                client.loop_stop()
+                await loop.run_in_executor(None, _stop_client, client)
             except Exception:
                 _LOGGER.debug("Error during ICI disconnect", exc_info=True)
 

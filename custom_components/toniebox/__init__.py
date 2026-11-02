@@ -19,6 +19,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -169,8 +170,13 @@ async def _find_toniebox_target(hass: HomeAssistant, entity_id: str):
     return None, None, None, None
 
 
-def _read_file(path: str) -> bytes:
-    """Read a file outside the event loop (used via async_add_executor_job)."""
+def _read_file(path: str) -> bytes | None:
+    """Read a file outside the event loop (used via async_add_executor_job).
+
+    Returns None if the path is not a regular file.
+    """
+    if not os.path.isfile(path):
+        return None
     with open(path, "rb") as f:
         return f.read()
 
@@ -314,10 +320,6 @@ def _register_services(hass: HomeAssistant) -> None:
         file_path = call.data["file_path"]
         title = call.data.get("title", "")
 
-        if not os.path.isfile(file_path):
-            _LOGGER.error("upload_audio: file not found: %s", file_path)
-            return
-
         client, hh_id, t_id = await _find_creative_tonie(hass, entity_id)
         if not client:
             _LOGGER.error("upload_audio: entity not found: %s", entity_id)
@@ -327,16 +329,22 @@ def _register_services(hass: HomeAssistant) -> None:
         if not title:
             title = os.path.splitext(filename)[0]
 
+        # isfile() is blocking I/O too, so it runs in the executor with the read.
+        file_data = await hass.async_add_executor_job(_read_file, file_path)
+        if file_data is None:
+            raise ServiceValidationError(f"upload_audio: file not found: {file_path}")
+
         try:
-            file_data = await hass.async_add_executor_job(_read_file, file_path)
             await client.upload_and_add_chapter(hh_id, t_id, file_data, filename, title)
             await _refresh_all(hass)
             _LOGGER.info("upload_audio: successfully uploaded '%s' to %s", filename, entity_id)
         except Exception as err:
             _LOGGER.error("upload_audio failed for %s: %s", file_path, err)
 
-    hass.services.async_register(
-        DOMAIN, "upload_audio", handle_upload_audio,
+    # Admin-only: the service reads an arbitrary path on the host and sends it
+    # to the Tonie Cloud, so non-admin users must not be able to call it.
+    async_register_admin_service(
+        hass, DOMAIN, "upload_audio", handle_upload_audio,
         schema=vol.Schema({
             vol.Required("entity_id"): cv.string,
             vol.Required("file_path"): cv.string,
