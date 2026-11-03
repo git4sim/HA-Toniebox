@@ -180,7 +180,8 @@
       "bedtime_max_volume": {"name": "Schlafenszeit Max. Lautstärke Box"},
       "bedtime_max_headphone_volume": {"name": "Schlafenszeit Max. Kopfhörerlautstärke"},
       "max_volume": {"name": "Max. Lautstärke Box"},
-      "max_headphone_volume": {"name": "Max. Kopfhörerlautstärke"}
+      "max_headphone_volume": {"name": "Max. Kopfhörerlautstärke"},
+      "volume_multiplier": {"name": "Lautstärke-Multiplikator"}
     },
     "select": {
       "led_level": {
