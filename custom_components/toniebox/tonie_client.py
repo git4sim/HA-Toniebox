@@ -624,7 +624,13 @@ class TonieCloudClient:
             # Nothing to shuffle with fewer than 2 chapters.
             if len(chapters) < 2:
                 return
-            random.shuffle(chapters)
+            # Guarantee an order that differs from the current one (with only a
+            # few chapters a plain shuffle often returns the same order).
+            original = [c.get("id") for c in chapters]
+            for _ in range(10):
+                random.shuffle(chapters)
+                if [c.get("id") for c in chapters] != original:
+                    break
         await self.patch_creative_tonie(household_id, tonie_id, {"chapters": chapters})
 
     async def clear_chapters(self, household_id: str, tonie_id: str) -> None:

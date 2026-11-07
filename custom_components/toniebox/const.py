@@ -57,6 +57,23 @@ SORT_OPTIONS = [SORT_BY_TITLE, SORT_BY_FILENAME, SORT_BY_DATE, SORT_BY_RANDOM]
 STORAGE_VERSION = 1
 STORAGE_KEY_SHUFFLE = f"{DOMAIN}_shuffle"  # actual key gets the entry_id suffixed
 
+# ── Volume boost per Tonie ─────────────────────────────────────────────────────
+# Local-only per-Tonie multiplier: while that Tonie sits on a box, the box's max
+# volume and current volume are raised by this factor; when it is removed (or
+# replaced) the change is undone. Applied/active state is persisted so the undo
+# survives a restart.
+STORAGE_KEY_VOLUME_BOOST = f"{DOMAIN}_volume_boost"
+VOLUME_MULTIPLIER_MIN = 1.0
+VOLUME_MULTIPLIER_MAX = 3.0
+MAX_VOLUME_STEPS = [25, 50, 75, 100]  # allowed values of the box's maxVolume
+# Order matters: the box clamps the level to its *current* max, and a new max
+# only reaches the box a few seconds after the cloud PATCH. So: raise max →
+# wait for the box's settings confirmation → then raise the level and verify.
+BOOST_SETTINGS_TIMEOUT = 20.0  # s to wait for the box to confirm new settings
+BOOST_SETTLE_DELAY = 2.0       # s grace after confirmation / between retries
+BOOST_LEVEL_WAIT = 5.0         # s to wait for the box to report its volume
+BOOST_LEVEL_ATTEMPTS = 3       # level sends before giving up
+
 # ICI (MQTT v5 real-time push)
 ICI_HOST = "ici.tonie.cloud"
 ICI_PORT = 443

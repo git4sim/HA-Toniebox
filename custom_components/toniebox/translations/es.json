@@ -250,7 +250,8 @@
       },
       "max_headphone_volume": {
         "name": "Volumen máx. auriculares"
-      }
+      },
+      "volume_multiplier": {"name": "Multiplicador de volumen"}
     },
     "select": {
       "led_level": {
