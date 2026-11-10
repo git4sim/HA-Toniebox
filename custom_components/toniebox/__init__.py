@@ -30,6 +30,9 @@ from .const import (
     ICI_CMD_PLAYBACK, ICI_CMD_VOLUME, ICI_VOLUME_MAX_LEVEL,
     ICI_CMD_SLEEP_TIMER, ICI_CMD_SLEEP_NOW,
     SORT_BY_RANDOM, STORAGE_VERSION, STORAGE_KEY_SHUFFLE,
+    STORAGE_KEY_VOLUME_BOOST,
+    VOLUME_MULTIPLIER_MIN, VOLUME_MULTIPLIER_MAX,
+    BOOST_SETTINGS_TIMEOUT, BOOST_SETTLE_DELAY, BOOST_LEVEL_WAIT, BOOST_LEVEL_ATTEMPTS,
     is_tng_box,
 )
 from .ici_client import TonieboxIciClient
@@ -65,13 +68,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = TonieboxDataUpdateCoordinator(hass, client, entry)
 
+    # Load persisted "shuffle on swap" state (switches + last Tonie per box)
+    # and the volume-boost state before the first refresh, so a swap done
+    # while HA was down is detected and a pending boost can be undone.
+    await coordinator.async_load_shuffle()
+
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
         raise ConfigEntryNotReady(f"Could not fetch data: {err}") from err
-
-    # Load persisted "shuffle on swap" switch states before platforms are set up.
-    await coordinator.async_load_shuffle()
 
     # Start ICI real-time connection for TNG boxes
     await coordinator.async_start_ici()
@@ -535,9 +540,30 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         # Persisted per-Creative-Tonie toggle (tonie_id → bool).
         self.shuffle_enabled: dict[str, bool] = {}
         self._shuffle_store: Store | None = None
-        # Last placed tonie per box (box_id → tonie_id | None), tracked in memory
-        # to detect a *displacement* (one tonie replaced by a different one).
-        self._last_placed: dict[str, str | None] = {}
+        # Last Tonie that was on each box (box_id → tonie_id). Deliberately NOT
+        # cleared when the box goes empty: the normal swap is "lift A off, put
+        # B on", so the predecessor must survive the empty phase. Persisted.
+        self._last_placed: dict[str, str] = {}
+        # Boxes whose placement is delivered in real time via ICI. For these the
+        # (slower, possibly stale) poll result is not used for swap detection.
+        self._ici_placement_boxes: set[str] = set()
+        # Creative Tonies with a shuffle currently in flight (dedupe).
+        self._shuffle_in_flight: set[str] = set()
+        self._stale_retry = False
+        # ── Volume boost per Tonie ──
+        # tonie_id → multiplier (> 1.0 = louder). Persisted.
+        self.volume_multipliers: dict[str, float] = {}
+        # Boost currently applied per box, persisted so it can be undone even
+        # after a restart: tb_id → {tonie_id, factor, orig_max, boosted_max,
+        # orig_level, boosted_level}.
+        self._active_boosts: dict[str, dict] = {}
+        self._boost_locks: dict[str, asyncio.Lock] = {}
+        self._boost_store: Store | None = None
+        # Signals from the box (ICI): settings applied / volume reported.
+        self._settings_events: dict[str, asyncio.Event] = {}
+        self._volume_events: dict[str, asyncio.Event] = {}
+        # Last volume level seen per box (persisted fallback after a restart).
+        self._last_levels: dict[str, int] = {}
         # ── Stale device cleanup ──
         # Incremented on every completed cloud poll; cleanup runs once per poll
         # (not on every ICI push, which also notifies coordinator listeners).
@@ -561,9 +587,325 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception:
             _LOGGER.warning("Could not load shuffle-on-swap state", exc_info=True)
             stored = None
-        enabled = (stored or {}).get("shuffleEnabled")
+        stored = stored or {}
+        enabled = stored.get("shuffleEnabled")
         if isinstance(enabled, dict):
             self.shuffle_enabled = {k: bool(v) for k, v in enabled.items()}
+        last = stored.get("lastPlaced")
+        if isinstance(last, dict):
+            self._last_placed = {k: v for k, v in last.items() if isinstance(v, str) and v}
+
+        # Volume boost state lives in its own store.
+        self._boost_store = Store(
+            self.hass, STORAGE_VERSION, f"{STORAGE_KEY_VOLUME_BOOST}_{self.entry.entry_id}"
+        )
+        try:
+            boost = await self._boost_store.async_load() or {}
+        except Exception:
+            _LOGGER.warning("Could not load volume-boost state", exc_info=True)
+            boost = {}
+        mult = boost.get("multipliers")
+        if isinstance(mult, dict):
+            self.volume_multipliers = {
+                k: float(v) for k, v in mult.items() if isinstance(v, (int, float))
+            }
+        levels = boost.get("lastLevels")
+        if isinstance(levels, dict):
+            self._last_levels = {
+                k: int(v) for k, v in levels.items() if isinstance(v, (int, float))
+            }
+        active = boost.get("active")
+        if isinstance(active, dict):
+            self._active_boosts = {
+                k: v for k, v in active.items() if isinstance(v, dict) and v.get("tonie_id")
+            }
+
+    def _save_boost_state(self) -> None:
+        if self._boost_store:
+            # Write immediately (no long delay): this is what lets us undo a
+            # boost after a crash/restart.
+            self._boost_store.async_delay_save(
+                lambda: {
+                    "multipliers": self.volume_multipliers,
+                    "active": self._active_boosts,
+                    "lastLevels": self._last_levels,
+                },
+                0,
+            )
+
+    # ── Volume boost per Tonie ─────────────────────────────────────────────────
+
+    def get_volume_multiplier(self, tonie_id: str) -> float:
+        return float(self.volume_multipliers.get(tonie_id, 1.0))
+
+    async def async_set_volume_multiplier(self, tonie_id: str, factor: float) -> None:
+        """Set a Tonie's multiplier and re-apply it if it is currently placed."""
+        factor = round(max(VOLUME_MULTIPLIER_MIN, min(VOLUME_MULTIPLIER_MAX, factor)), 2)
+        if factor == 1.0:
+            self.volume_multipliers.pop(tonie_id, None)
+        else:
+            self.volume_multipliers[tonie_id] = factor
+        self._save_boost_state()
+        # Boxes where this Tonie sits (or is currently boosted) → reconcile.
+        for hh_id, hh in (self.data or {}).get("households", {}).items():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                active = self._active_boosts.get(tb_id) or {}
+                if self._placed_tonie_id(tb) == tonie_id or active.get("tonie_id") == tonie_id:
+                    if active.get("tonie_id") == tonie_id:
+                        # Undo the old factor first, then apply the new one.
+                        await self._async_sync_volume_boost(hh_id, tb_id, force_revert=True)
+                    await self._async_sync_volume_boost(hh_id, tb_id)
+
+    def _schedule_volume_sync(self, tb_id: str) -> None:
+        """Reconcile the volume boost of a box after its placement changed."""
+        for hh_id, hh in (self.data or {}).get("households", {}).items():
+            if tb_id in hh.get("tonieboxes", {}):
+                self.hass.async_create_task(self._async_sync_volume_boost(hh_id, tb_id))
+                return
+
+    @staticmethod
+    def _boost_max_volume(orig: int, factor: float) -> int:
+        """orig × factor, capped at 100 % (the box accepts any value 1–100)."""
+        return max(1, min(100, round(orig * factor)))
+
+    @staticmethod
+    def _rescale_level(level: float, max_before: float, max_after: float, factor: float) -> int:
+        """Level that gives `factor` × the loudness of `level` after a max change.
+
+        The box's volume level is RELATIVE to its max volume (13 = 100 % of the
+        max). Loudness ≈ level/13 × max, so the new level is
+        level × max_before × factor / max_after. (Verified on a live box: max
+        52 → 100 made the box re-report level 12 as 7 — same loudness.)
+        """
+        if not max_after:
+            return int(level)
+        target = round(level * max_before * factor / max_after)
+        return max(1, min(ICI_VOLUME_MAX_LEVEL, target))
+
+    async def _async_sync_volume_boost(
+        self, hh_id: str, tb_id: str, force_revert: bool = False
+    ) -> None:
+        """Make the box's volume match the Tonie currently on it.
+
+        Idempotent: compares the persisted active boost with the Tonie placed
+        right now. Runs serialized per box so fast swaps can't interleave.
+        """
+        lock = self._boost_locks.setdefault(tb_id, asyncio.Lock())
+        async with lock:
+            tb = (
+                (self.data or {}).get("households", {}).get(hh_id, {})
+                .get("tonieboxes", {}).get(tb_id)
+            )
+            if tb is None:
+                return
+            current = self._placed_tonie_id(tb)
+            active = self._active_boosts.get(tb_id)
+
+            # 1) Undo a boost that no longer belongs to the placed Tonie.
+            if active and (force_revert or active.get("tonie_id") != current):
+                await self._async_revert_boost(hh_id, tb_id, tb, active)
+                if tb_id in self._active_boosts:
+                    return  # undo failed → keep record, retry on next sync
+                active = None
+
+            # 2) Apply the boost for the newly placed Tonie.
+            if active or not current:
+                return
+            factor = self.get_volume_multiplier(current)
+            if factor <= 1.0:
+                return
+            await self._async_apply_boost(hh_id, tb_id, tb, current, factor)
+
+    async def _async_change_max_and_wait(
+        self, hh_id: str, tb_id: str, tb: dict, new_max: int
+    ) -> bool:
+        """PATCH the max volume, then wait until the box has applied it.
+
+        The PATCH only reaches the cloud; the box gets the new limit a few
+        seconds later and then re-reports its (rescaled) volume level. Any level
+        we send before that would be overwritten by that rescale.
+        """
+        vol_ev = self._box_event(self._volume_events, tb_id)
+        vol_ev.clear()
+        try:
+            await self.client.patch_toniebox(hh_id, tb_id, {"maxVolume": new_max})
+        except Exception as err:
+            _LOGGER.warning("Volume boost: could not set max volume %s on %s: %s",
+                            new_max, tb_id, err)
+            return False
+        tb["max_volume"] = new_max
+        live = self._get_tb(hh_id, tb_id)
+        if live is not None:
+            live["max_volume"] = new_max
+        try:
+            await asyncio.wait_for(vol_ev.wait(), BOOST_SETTINGS_TIMEOUT)
+            _LOGGER.debug("Volume boost: box %s applied max %s (now reports level %s)",
+                          tb_id, new_max, self._current_level(hh_id, tb_id))
+        except asyncio.TimeoutError:
+            _LOGGER.debug("Volume boost: box %s sent no volume update within %ss after max change",
+                          tb_id, BOOST_SETTINGS_TIMEOUT)
+        await asyncio.sleep(BOOST_SETTLE_DELAY)
+        return True
+
+    async def _async_apply_boost(
+        self, hh_id: str, tb_id: str, tb: dict, tonie_id: str, factor: float
+    ) -> None:
+        orig_max = tb.get("max_volume")
+        # Level BEFORE the max change (the box rescales it afterwards).
+        level = self._current_level(hh_id, tb_id)
+        if level is None:
+            level = await self._async_wait_for_level(hh_id, tb_id, BOOST_LEVEL_WAIT)
+        if level is None:
+            level = self._last_levels.get(tb_id)
+
+        record: dict = {"tonie_id": tonie_id, "factor": factor}
+        if isinstance(orig_max, (int, float)):
+            record["orig_max"] = int(orig_max)
+            record["boosted_max"] = self._boost_max_volume(int(orig_max), factor)
+        if level is not None:
+            record["orig_level"] = int(level)
+        # Persist BEFORE changing anything, so it can always be undone.
+        self._active_boosts[tb_id] = record
+        self._save_boost_state()
+
+        # ── Step 1: max volume, and wait until the box has applied it ──
+        max_before = record.get("orig_max")
+        max_after = max_before
+        if max_before is not None and record["boosted_max"] != max_before:
+            if await self._async_change_max_and_wait(hh_id, tb_id, tb, record["boosted_max"]):
+                max_after = record["boosted_max"]
+            else:
+                record["boosted_max"] = max_before
+            self._save_boost_state()
+
+        if self._placed_tonie_id(self._get_tb(hh_id, tb_id) or {}) != tonie_id:
+            _LOGGER.debug("Volume boost: Tonie %s left box %s before level change", tonie_id, tb_id)
+            return
+
+        # ── Step 2: current volume — only now, after the box's rescale ──
+        if level is None:
+            _LOGGER.warning(
+                "Volume boost: current volume of box %s unknown — only max volume "
+                "was raised. Change the volume once on the box so it gets known.",
+                tb_id,
+            )
+        else:
+            target = self._rescale_level(level, max_before or 100, max_after or 100, factor)
+            record["boosted_level"] = target
+            self._save_boost_state()
+            await self._async_set_level_verified(hh_id, tb_id, target)
+        self._save_boost_state()
+        _LOGGER.info(
+            "Volume boost ×%s for Tonie %s on box %s: max %s→%s, level %s→%s",
+            factor, tonie_id, tb_id,
+            record.get("orig_max"), record.get("boosted_max"),
+            record.get("orig_level"), record.get("boosted_level"),
+        )
+        self.async_update_listeners()
+
+    def _get_tb(self, hh_id: str, tb_id: str) -> dict | None:
+        """Fresh box dict (a poll replaces the whole data tree)."""
+        return (
+            (self.data or {}).get("households", {}).get(hh_id, {})
+            .get("tonieboxes", {}).get(tb_id)
+        )
+
+    def _current_level(self, hh_id: str, tb_id: str) -> int | None:
+        level = ((self._get_tb(hh_id, tb_id) or {}).get("volume") or {}).get("level")
+        return int(level) if isinstance(level, (int, float)) else None
+
+    @staticmethod
+    def _box_event(store: dict, tb_id: str) -> asyncio.Event:
+        ev = store.get(tb_id)
+        if ev is None:
+            ev = store[tb_id] = asyncio.Event()
+        return ev
+
+    async def _async_wait_for_level(self, hh_id: str, tb_id: str, timeout: float) -> int | None:
+        ev = self._box_event(self._volume_events, tb_id)
+        ev.clear()
+        try:
+            await asyncio.wait_for(ev.wait(), timeout)
+        except asyncio.TimeoutError:
+            pass
+        return self._current_level(hh_id, tb_id)
+
+    async def _async_set_level_verified(self, hh_id: str, tb_id: str, target: int) -> bool:
+        """Send a volume level and make sure it sticks.
+
+        Checks the box's echo, then watches a little longer: a late rescale
+        from a max change would overwrite our level, so we re-send if needed.
+        """
+        for attempt in range(1, BOOST_LEVEL_ATTEMPTS + 1):
+            if self._current_level(hh_id, tb_id) != target:
+                tb = self._get_tb(hh_id, tb_id) or {}
+                ev = self._box_event(self._volume_events, tb_id)
+                ev.clear()
+                if not self.ici_set_volume_level(tb.get("mac_address") or "", target):
+                    return False
+                try:
+                    await asyncio.wait_for(ev.wait(), BOOST_LEVEL_WAIT)
+                except asyncio.TimeoutError:
+                    pass
+            # Stability check: does it stay there?
+            ev = self._box_event(self._volume_events, tb_id)
+            ev.clear()
+            try:
+                await asyncio.wait_for(ev.wait(), BOOST_SETTLE_DELAY * 2)
+            except asyncio.TimeoutError:
+                pass
+            reported = self._current_level(hh_id, tb_id)
+            if reported == target:
+                _LOGGER.debug("Volume boost: box %s stays at level %s", tb_id, target)
+                return True
+            _LOGGER.debug(
+                "Volume boost: box %s reports level %s instead of %s (attempt %s)",
+                tb_id, reported, target, attempt,
+            )
+        _LOGGER.warning(
+            "Volume boost: box %s did not keep level %s (reports %s)",
+            tb_id, target, self._current_level(hh_id, tb_id),
+        )
+        return False
+
+    async def _async_revert_boost(self, hh_id: str, tb_id: str, tb: dict, active: dict) -> None:
+        """Restore exactly the max volume and level from before the boost.
+
+        Same order as applying: max first, wait for the box's rescale, then
+        set the level (otherwise the rescale would overwrite it).
+        """
+        tb = self._get_tb(hh_id, tb_id) or tb
+        orig_max = active.get("orig_max")
+        boosted_max = active.get("boosted_max")
+        ok = True
+
+        if orig_max is not None and boosted_max is not None and boosted_max != orig_max:
+            cur_max = tb.get("max_volume")
+            # Changed by hand in the meantime → leave the user's value alone.
+            if cur_max is None or cur_max == boosted_max:
+                ok = await self._async_change_max_and_wait(hh_id, tb_id, tb, orig_max)
+
+        if ok and active.get("orig_level") is not None:
+            await self._async_set_level_verified(hh_id, tb_id, int(active["orig_level"]))
+
+        if ok:
+            self._active_boosts.pop(tb_id, None)
+            self._save_boost_state()
+            _LOGGER.info(
+                "Volume boost undone for Tonie %s on box %s (max %s, level %s)",
+                active.get("tonie_id"), tb_id, orig_max, active.get("orig_level"),
+            )
+        self.async_update_listeners()
+
+    def _save_shuffle_state(self) -> None:
+        if self._shuffle_store:
+            self._shuffle_store.async_delay_save(
+                lambda: {
+                    "shuffleEnabled": self.shuffle_enabled,
+                    "lastPlaced": self._last_placed,
+                },
+                1,
+            )
 
     def is_shuffle_enabled(self, tonie_id: str) -> bool:
         """Return True if 'shuffle on swap' is active for this Creative Tonie."""
@@ -572,10 +914,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
     async def async_set_shuffle_enabled(self, tonie_id: str, enabled: bool) -> None:
         """Persist the 'shuffle on swap' toggle for a Creative Tonie."""
         self.shuffle_enabled[tonie_id] = enabled
-        if self._shuffle_store:
-            self._shuffle_store.async_delay_save(
-                lambda: {"shuffleEnabled": self.shuffle_enabled}, 1
-            )
+        self._save_shuffle_state()
 
     def _find_creative_tonie(self, tonie_id: str, data: dict) -> tuple[str | None, dict | None]:
         """Return (household_id, tonie_dict) for a Creative Tonie id, or (None, None)."""
@@ -585,59 +924,77 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 return hh_id, tonie
         return None, None
 
+    @staticmethod
+    def _placed_tonie_id(tb: dict) -> str | None:
+        placed = (tb.get("placement") or {}).get("tonie") or {}
+        return placed.get("id") if isinstance(placed, dict) else None
+
+    def _is_placed_elsewhere(self, tonie_id: str, except_tb_id: str, data: dict) -> bool:
+        """True if the Tonie currently sits on another box (moved, not swapped out)."""
+        for hh in (data or {}).get("households", {}).values():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                if tb_id != except_tb_id and self._placed_tonie_id(tb) == tonie_id:
+                    return True
+        return False
+
     def _note_placement(self, tb_id: str, current_tonie_id: str | None, data: dict) -> None:
         """Update last-placed tracking for a box and shuffle the displaced Tonie.
 
-        A shuffle is only triggered when a Creative Tonie with the switch enabled
-        (and ≥ 2 chapters) is replaced on a box by a *different* Tonie. Merely
-        removing a Tonie (box goes empty) never triggers a shuffle, so you can
-        pick a figure up and later put it back to continue where it left off.
+        A shuffle is triggered when a Creative Tonie with the switch enabled
+        (and ≥ 2 chapters) is followed on the same box by a *different* Tonie —
+        no matter whether it was a direct swap or "lift off, (pause), put the
+        next one on". Lifting a Tonie off and putting the *same* one back never
+        shuffles, so it continues where it left off.
         """
-        old_tonie_id = self._last_placed.get(tb_id)
-        self._last_placed[tb_id] = current_tonie_id
-
         if not current_tonie_id:
-            return  # box emptied → removal only, never a shuffle
-        if old_tonie_id is None:
-            return  # first placement seen for this box → no predecessor
+            return  # box emptied → keep remembering the predecessor
+        old_tonie_id = self._last_placed.get(tb_id)
         if old_tonie_id == current_tonie_id:
-            return  # no real change
-        # old_tonie_id was displaced by a different tonie → maybe shuffle it
+            return  # same Tonie back on the box → no change
+        self._last_placed[tb_id] = current_tonie_id
+        self._save_shuffle_state()
+        if old_tonie_id is None:
+            return  # first placement ever seen for this box → no predecessor
+        _LOGGER.debug(
+            "Tonie swap on box %s: %s → %s", tb_id, old_tonie_id, current_tonie_id
+        )
         if not self.is_shuffle_enabled(old_tonie_id):
             return
         hh_id, tonie = self._find_creative_tonie(old_tonie_id, data)
         if tonie is None:
             return  # not a Creative Tonie (content tonies/discs can't be reordered)
-        chapter_count = tonie.get("chapter_count")
-        if chapter_count is None:
-            chapter_count = len(tonie.get("chapters", []))
-        if chapter_count < 2:
+        if self._is_placed_elsewhere(old_tonie_id, tb_id, data):
+            return  # it was moved to another box and is playing there
+        if old_tonie_id in self._shuffle_in_flight:
             return
+        self._shuffle_in_flight.add(old_tonie_id)
         self.hass.async_create_task(self._async_shuffle_on_swap(hh_id, old_tonie_id))
 
     def _process_placements(self, data: dict) -> None:
-        """Feed the current placement of every box into the swap detector."""
+        """Feed polled placements into the swap detector.
+
+        Boxes with real-time ICI placement are skipped: a poll takes several
+        seconds and may return a placement that is already outdated, which
+        would look like a swap back and forth (wrong/double shuffles).
+        """
         for hh in data.get("households", {}).values():
             for tb_id, tb in hh.get("tonieboxes", {}).items():
-                placed = (tb.get("placement") or {}).get("tonie") or {}
-                tonie_id = placed.get("id") if isinstance(placed, dict) else None
-                self._note_placement(tb_id, tonie_id, data)
+                if tb_id in self._ici_placement_boxes:
+                    continue
+                self._note_placement(tb_id, self._placed_tonie_id(tb), data)
 
     async def _async_shuffle_on_swap(self, hh_id: str, tonie_id: str) -> None:
         """Shuffle a Creative Tonie's chapters after it was swapped out."""
-        # Re-check right before executing — state/content may have changed.
-        if not self.is_shuffle_enabled(tonie_id):
-            return
-        found_hh, tonie = self._find_creative_tonie(tonie_id, self.data or {})
-        hh_id = found_hh or hh_id
-        if tonie is None:
-            return
-        chapter_count = tonie.get("chapter_count")
-        if chapter_count is None:
-            chapter_count = len(tonie.get("chapters", []))
-        if chapter_count < 2:
-            return
         try:
+            # Re-check right before executing — state/content may have changed.
+            if not self.is_shuffle_enabled(tonie_id):
+                return
+            found_hh, tonie = self._find_creative_tonie(tonie_id, self.data or {})
+            hh_id = found_hh or hh_id
+            if tonie is None:
+                return
+            # sort_chapters fetches the live chapter list itself and is a no-op
+            # for < 2 chapters, so no reliance on possibly stale cached counts.
             await self.client.sort_chapters(hh_id, tonie_id, SORT_BY_RANDOM)
             _LOGGER.info(
                 "Auto-shuffled chapters of Creative Tonie %s after it was swapped out",
@@ -646,6 +1003,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             await self.async_request_refresh()
         except Exception as err:
             _LOGGER.warning("Auto-shuffle failed for Creative Tonie %s: %s", tonie_id, err)
+        finally:
+            self._shuffle_in_flight.discard(tonie_id)
 
     async def async_start_ici(self) -> None:
         """Start ICI MQTT connection for real-time TNG box data."""
@@ -854,6 +1213,7 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
 
         elif subtopic == ICI_TOPIC_SETTINGS:
             tb["settings_applied"] = True
+            self._box_event(self._settings_events, tb_id).set()
             updated = True
 
         elif subtopic == ICI_TOPIC_VOLUME and isinstance(payload, dict):
@@ -862,6 +1222,11 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                 "level": payload.get("level"),
                 "hardware_percentage": payload.get("hardwarePercentage"),
             }
+            level = payload.get("level")
+            if isinstance(level, (int, float)) and self._last_levels.get(tb_id) != int(level):
+                self._last_levels[tb_id] = int(level)
+                self._save_boost_state()
+            self._box_event(self._volume_events, tb_id).set()
             updated = True
 
         elif subtopic == ICI_TOPIC_BEDTIME:
@@ -883,9 +1248,12 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
             # "chapter": int, "chapterUntilMs": <epoch ms>, "chapterDuration":
             # <seconds>, "ended": bool, ...} — "tonie" is a flat ID string, not a
             # nested object. An empty/None payload means the Tonie was removed.
+            self._ici_placement_boxes.add(tb_id)
             if not payload:
                 tb["placement"] = {}
                 tb["playback_state"] = {}
+                # Tonie removed → undo its volume boost.
+                self._schedule_volume_sync(tb_id)
             elif isinstance(payload, dict):
                 raw_tonie = payload.get("tonie")
                 if isinstance(raw_tonie, dict):
@@ -906,6 +1274,8 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
                     )
                 except Exception:
                     _LOGGER.warning("Shuffle-on-swap push processing failed", exc_info=True)
+                # Apply / undo the per-Tonie volume boost for this box.
+                self._schedule_volume_sync(tb_id)
             updated = True
             # MQTT gives us the identity of the placed Tonie immediately, but not
             # chapters/cover art — request a full coordinator refresh so REST/
@@ -989,12 +1359,48 @@ class TonieboxDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Tonie Cloud error: {err}") from err
         self._poll_seq += 1
+        # ICI may have reported a new placement while the (multi-request) poll
+        # was running; the poll result then carries the old one. Keep the live
+        # ICI placement and fetch again so playback info matches it.
+        stale = False
+        for hh_id, hh in result.get("households", {}).items():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                if tb_id not in self._ici_placement_boxes:
+                    continue
+                live_tb = (
+                    (self.data or {}).get("households", {}).get(hh_id, {})
+                    .get("tonieboxes", {}).get(tb_id)
+                )
+                if not live_tb:
+                    continue
+                if self._placed_tonie_id(live_tb) != self._placed_tonie_id(tb):
+                    tb["placement"] = live_tb.get("placement") or {}
+                    tb["playback_state"] = live_tb.get("playback_state") or {}
+                    stale = True
+        if stale and not self._stale_retry:
+            self._stale_retry = True  # retry once, never loop
+            self.hass.async_create_task(self.async_request_refresh())
+        else:
+            self._stale_retry = False
         # Detect Tonie swaps from the freshly polled placement and, if enabled,
         # shuffle any displaced Creative Tonie. Never let this break the poll.
         try:
             self._process_placements(result)
         except Exception:
             _LOGGER.warning("Shuffle-on-swap poll processing failed", exc_info=True)
+        # Volume boost: reconcile every box (idempotent). Also retries undoing
+        # a boost that failed earlier, and undoes a stale boost after restart.
+        # TNG boxes are only handled once their live placement is known —
+        # otherwise a restart would wrongly undo the boost of a Tonie that is
+        # still on the box.
+        for hh_id, hh in result.get("households", {}).items():
+            for tb_id, tb in hh.get("tonieboxes", {}).items():
+                if is_tng_box(tb) and tb_id not in self._ici_placement_boxes:
+                    continue
+                if tb_id in self._active_boosts or self._placed_tonie_id(tb):
+                    self.hass.async_create_task(
+                        self._async_sync_volume_boost(hh_id, tb_id)
+                    )
         return result
 
     # ── Stale device cleanup ───────────────────────────────────────────────────

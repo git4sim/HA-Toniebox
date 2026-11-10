@@ -12,10 +12,16 @@ from homeassistant.components.number import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .device_info import toniebox_device_info
+from .const import DOMAIN, VOLUME_MULTIPLIER_MIN, VOLUME_MULTIPLIER_MAX
+from .device_info import (
+    toniebox_device_info,
+    creative_tonie_device_info,
+    content_tonie_device_info,
+    disc_device_info,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,8 +36,8 @@ class _TbNumberDesc(NumberEntityDescription):
 
 
 # ── All number entities ───────────────────────────────────────────────────────
-# Volume / headphone limits  (enum: 25 / 50 / 75 / 100 per API)
-_VOLUME_LEVELS = [25, 50, 75, 100]
+# Volume / headphone limits: any percentage 1–100 (a live box reported 52,
+# so the API is not restricted to 25/50/75/100).
 
 _TB_NUMBERS: list[_TbNumberDesc] = [
     # ── TNG-generation (lightring, bedtime) ───────────────────────────────────
@@ -79,12 +85,12 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
         api_key="bedtimeMaxHeadphoneVolume",
         feature_required="tngSettings",
     ),
-    # ── Classic / all boxes (volume enum: 25/50/75/100) ───────────────────────
+    # ── All boxes (volume limits in 1 % steps) ────────────────────────────────
     _TbNumberDesc(
         key="max_volume",
         name="Max. Box Volume",
         icon="mdi:volume-high",
-        native_min_value=25, native_max_value=100, native_step=25,
+        native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
         mode=NumberMode.SLIDER,
         data_key="max_volume",
@@ -94,7 +100,7 @@ _TB_NUMBERS: list[_TbNumberDesc] = [
         key="max_headphone_volume",
         name="Max. Headphone Volume",
         icon="mdi:headphones",
-        native_min_value=25, native_max_value=100, native_step=25,
+        native_min_value=1, native_max_value=100, native_step=1,
         native_unit_of_measurement="%",
         mode=NumberMode.SLIDER,
         data_key="max_headphone_volume",
@@ -119,7 +125,30 @@ async def async_setup_entry(
                     continue
                 entities.append(TonieboxNumber(coordinator, hh_id, tb_id, desc))
 
+    # ── Volume multiplier per Tonie (Creative, Content, Disc) ─────────────────
+    known: set[tuple[str, str]] = set()
+
+    def _collect_multipliers() -> list:
+        new: list = []
+        for hh_id, hh in coordinator.data.get("households", {}).items():
+            for kind in ("creativetonies", "contenttonies", "discs"):
+                for t_id in hh.get(kind, {}):
+                    if (kind, t_id) in known:
+                        continue
+                    known.add((kind, t_id))
+                    new.append(TonieVolumeMultiplierNumber(coordinator, hh_id, t_id, kind))
+        return new
+
+    entities += _collect_multipliers()
     async_add_entities(entities)
+
+    @callback
+    def _async_add_new() -> None:
+        new = _collect_multipliers()
+        if new:
+            async_add_entities(new)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_new))
 
 
 class TonieboxNumber(CoordinatorEntity, NumberEntity):
@@ -177,3 +206,47 @@ class TonieboxNumber(CoordinatorEntity, NumberEntity):
             self._hh_id, self._tb_id, {self._desc.api_key: int(value)}
         )
         await self.coordinator.async_request_refresh()
+
+
+_DEVICE_INFO = {
+    "creativetonies": creative_tonie_device_info,
+    "contenttonies": content_tonie_device_info,
+    "discs": disc_device_info,
+}
+_UID_PREFIX = {"creativetonies": "ct", "contenttonies": "content", "discs": "disc"}
+
+
+class TonieVolumeMultiplierNumber(CoordinatorEntity, NumberEntity):
+    """Per-Tonie volume multiplier (local-only, persisted by the coordinator).
+
+    While this Tonie is on a box, the box's max volume and current volume are
+    raised by this factor; removing/replacing the Tonie undoes it.
+    """
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:volume-plus"
+    _attr_translation_key = "volume_multiplier"
+    _attr_native_min_value = VOLUME_MULTIPLIER_MIN
+    _attr_native_max_value = VOLUME_MULTIPLIER_MAX
+    _attr_native_step = 0.1
+    _attr_native_unit_of_measurement = "×"
+    _attr_mode = NumberMode.BOX
+
+    def __init__(self, coordinator, hh_id: str, t_id: str, kind: str) -> None:
+        super().__init__(coordinator)
+        self._hh_id = hh_id
+        self._t_id = t_id
+        self._kind = kind
+        self._attr_unique_id = f"{_UID_PREFIX[kind]}_{t_id}_volume_multiplier"
+
+    @property
+    def device_info(self) -> dict:
+        return _DEVICE_INFO[self._kind](self.coordinator, self._hh_id, self._t_id)
+
+    @property
+    def native_value(self) -> float:
+        return self.coordinator.get_volume_multiplier(self._t_id)
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_volume_multiplier(self._t_id, value)
+        self.async_write_ha_state()

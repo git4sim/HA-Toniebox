@@ -180,7 +180,8 @@
       "bedtime_max_volume": {"name": "Bedtime Max. Box Volume"},
       "bedtime_max_headphone_volume": {"name": "Bedtime Max. Headphone Volume"},
       "max_volume": {"name": "Max. Box Volume"},
-      "max_headphone_volume": {"name": "Max. Headphone Volume"}
+      "max_headphone_volume": {"name": "Max. Headphone Volume"},
+      "volume_multiplier": {"name": "Volume multiplier"}
     },
     "select": {
       "led_level": {
