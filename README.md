@@ -17,6 +17,9 @@
   <img src="https://img.shields.io/badge/HA-2026.3%2B-brightgreen?logo=home-assistant" alt="Home Assistant"/>
   <img src="https://img.shields.io/github/license/git4sim/HA-Toniebox?color=lightgrey" alt="MIT License"/>
   <img src="https://img.shields.io/badge/vibecoded-%F0%9F%A4%96-blueviolet" alt="Vibecoded"/>
+  <a href="https://buymeacoffee.com/git4sim">
+    <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"/>
+  </a>
 </p>
 
 ---
@@ -553,6 +556,24 @@ Or via **Settings → Devices & Services → Toniebox → Enable debug logging**
 This integration was developed with **AI pair programming** ([Claude by Anthropic](https://anthropic.com)). Architecture, authentication flow and all platforms were built iteratively with AI assistance and tested against a real Toniebox account.
 
 That means: it works — but **edge cases may occur**. PRs, bug reports and improvements are very welcome!
+
+---
+
+## ☕ Support the Project
+
+HA-Toniebox started as a weekend experiment: I wanted the Toniebox in our kids' room to finally be part of our smart home — the light dims when the bedtime story starts, the volume drops in the evening, and I get a ping when the box goes offline. What began as a small personal project turned into an integration that I keep building in my free time, late in the evening once the little ones are asleep.
+
+I do this out of pure passion for Home Assistant, open source and the joy of making everyday family life a little bit smarter. There is no company behind it and no paid support — just me, a lot of coffee and a Toniebox that serves as my test device.
+
+If this integration makes your life easier, saves you some time or simply brings a smile to your face when the light turns on as your child places their favourite Tonie: I'd be really happy about a coffee. ☕ Every cup motivates me to keep up with API changes, fix bugs and build new features.
+
+<p align="center">
+  <a href="https://buymeacoffee.com/git4sim">
+    <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"/>
+  </a>
+</p>
+
+Not into coffee? A ⭐ on GitHub, a bug report or a pull request help just as much — thank you! 💛
 
 ---
 
@@ -1101,6 +1122,24 @@ Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bu
 
 ---
 
+## ☕ Projekt unterstützen
+
+HA-Toniebox ist als Wochenend-Experiment entstanden: Ich wollte, dass die Toniebox im Kinderzimmer endlich Teil unseres Smart Homes wird — das Licht dimmt, wenn die Gute-Nacht-Geschichte startet, abends wird es automatisch leiser, und ich bekomme Bescheid, wenn die Box offline geht. Aus dem kleinen privaten Projekt ist eine Integration geworden, an der ich in meiner Freizeit weiterbaue — meistens spätabends, wenn die Kleinen schlafen.
+
+Ich mache das aus purer Leidenschaft für Home Assistant, Open Source und die Freude daran, den Familienalltag ein kleines bisschen smarter zu machen. Dahinter steht keine Firma und kein bezahlter Support — nur ich, viel Kaffee und eine Toniebox als Testgerät.
+
+Wenn dir diese Integration den Alltag erleichtert, Zeit spart oder dir einfach ein Lächeln ins Gesicht zaubert, wenn das Licht angeht, sobald dein Kind seinen Lieblings-Tonie auflegt: Über einen Kaffee freue ich mich riesig. ☕ Jede Tasse motiviert mich, mit API-Änderungen Schritt zu halten, Bugs zu fixen und neue Features zu bauen.
+
+<p align="center">
+  <a href="https://buymeacoffee.com/git4sim">
+    <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Spendier mir einen Kaffee"/>
+  </a>
+</p>
+
+Kein Kaffee-Fan? Ein ⭐ auf GitHub, ein Bug Report oder ein Pull Request helfen genauso — danke! 💛
+
+---
+
 ## Quellen & Attribution
 
 | Quelle | Lizenz | Verwendung |
@@ -1123,4 +1162,4 @@ Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bu
 
 ---
 
-<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Report a bug / Bug melden</a></p>
+<p align="center">Made with 🧸 + 🤖 + ☕ &nbsp;|&nbsp; <a href="https://buymeacoffee.com/git4sim">Buy me a coffee</a> &nbsp;|&nbsp; <a href="https://github.com/git4sim/HA-Toniebox/issues">Report a bug / Bug melden</a></p>
