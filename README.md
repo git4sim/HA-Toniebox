@@ -20,6 +20,11 @@
 </p>
 
 ---
+<p align="center">
+  <a href="https://buymeacoffee.com/git4sim">
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20Tonie%20Figur&emoji=&slug=git4sim&button_colour=5F7FFF&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a Tonie Figur" />
+  </a>
+</p>
 
 > [!WARNING]
 > **Disclaimer — Please read before use / Bitte vor der Nutzung lesen**
