@@ -561,11 +561,9 @@ That means: it works — but **edge cases may occur**. PRs, bug reports and impr
 
 ## ☕ Support the Project
 
-HA-Toniebox started as a weekend experiment: I wanted the Toniebox in our kids' room to finally be part of our smart home — the light dims when the bedtime story starts, the volume drops in the evening, and I get a ping when the box goes offline. What began as a small personal project turned into an integration that I keep building in my free time, late in the evening once the little ones are asleep.
+I build Home Assistant integrations out of pure passion — in my free time, because I love open source and enjoy connecting devices that were never meant to talk to each other. There is no company behind this and no paid support, just curiosity, a lot of tinkering and a fair amount of coffee.
 
-I do this out of pure passion for Home Assistant, open source and the joy of making everyday family life a little bit smarter. There is no company behind it and no paid support — just me, a lot of coffee and a Toniebox that serves as my test device.
-
-If this integration makes your life easier, saves you some time or simply brings a smile to your face when the light turns on as your child places their favourite Tonie: I'd be really happy about a coffee. ☕ Every cup motivates me to keep up with API changes, fix bugs and build new features.
+If my work makes your smart home a little better, I'd be really happy about a coffee. ☕ It helps me keep my integrations maintained, fix bugs and build new ones.
 
 <p align="center">
   <a href="https://buymeacoffee.com/git4sim">
@@ -1124,11 +1122,9 @@ Das bedeutet: Es funktioniert — aber **Randfälle können vorkommen**. PRs, Bu
 
 ## ☕ Projekt unterstützen
 
-HA-Toniebox ist als Wochenend-Experiment entstanden: Ich wollte, dass die Toniebox im Kinderzimmer endlich Teil unseres Smart Homes wird — das Licht dimmt, wenn die Gute-Nacht-Geschichte startet, abends wird es automatisch leiser, und ich bekomme Bescheid, wenn die Box offline geht. Aus dem kleinen privaten Projekt ist eine Integration geworden, an der ich in meiner Freizeit weiterbaue — meistens spätabends, wenn die Kleinen schlafen.
+Ich entwickle Home-Assistant-Integrationen aus purer Leidenschaft — in meiner Freizeit, weil ich Open Source liebe und es mir Spaß macht, Geräte miteinander zu verbinden, die eigentlich nie dafür gedacht waren. Dahinter steht keine Firma und kein bezahlter Support, nur Neugier, viel Tüftelei und eine ordentliche Portion Kaffee.
 
-Ich mache das aus purer Leidenschaft für Home Assistant, Open Source und die Freude daran, den Familienalltag ein kleines bisschen smarter zu machen. Dahinter steht keine Firma und kein bezahlter Support — nur ich, viel Kaffee und eine Toniebox als Testgerät.
-
-Wenn dir diese Integration den Alltag erleichtert, Zeit spart oder dir einfach ein Lächeln ins Gesicht zaubert, wenn das Licht angeht, sobald dein Kind seinen Lieblings-Tonie auflegt: Über einen Kaffee freue ich mich riesig. ☕ Jede Tasse motiviert mich, mit API-Änderungen Schritt zu halten, Bugs zu fixen und neue Features zu bauen.
+Wenn meine Arbeit dein Smart Home ein Stück besser macht, freue ich mich riesig über einen Kaffee. ☕ Er hilft mir, meine Integrationen zu pflegen, Bugs zu fixen und neue zu bauen.
 
 <p align="center">
   <a href="https://buymeacoffee.com/git4sim">
