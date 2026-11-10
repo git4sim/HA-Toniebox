@@ -567,7 +567,7 @@ If my work makes your smart home a little better, I'd be really happy about a co
 
 <p align="center">
   <a href="https://buymeacoffee.com/git4sim">
-    <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"/>
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20Tonie%20Figur&emoji=&slug=git4sim&button_colour=5F7FFF&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a Tonie Figur" />
   </a>
 </p>
 
@@ -1128,7 +1128,7 @@ Wenn meine Arbeit dein Smart Home ein Stück besser macht, freue ich mich riesig
 
 <p align="center">
   <a href="https://buymeacoffee.com/git4sim">
-    <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-%E2%98%95-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Spendier mir einen Kaffee"/>
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20Tonie%20Figur&emoji=&slug=git4sim&button_colour=5F7FFF&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00" alt="Buy me a Tonie Figur" />
   </a>
 </p>
 
